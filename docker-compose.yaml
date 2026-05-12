@@ -1,5 +1,3 @@
-
-
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.1-alpine
@@ -18,23 +16,11 @@ services:
           memory: 1000M
     restart: on-failure
 
-  alertmanager:
-    image: signoz/alertmanager:0.23.0-rc.4
-    container_name: signoz-alertmanager
-    volumes:
-      - ./data/alertmanager:/data
-    deploy:
-      resources:
-        limits:
-          memory: 100M
-    restart: on-failure
-
-  query-service:
-    image: signoz/query-service:0.41.0
-    container_name: signoz-query-service
+  signoz:
+    image: signoz/signoz:0.41.0
+    container_name: signoz-unified
     environment:
       - ClickHouseUrl=tcp://clickhouse:9000
-      - AlertManagerApiPrefix=http://alertmanager:9093/api/
       - SIGNOZ_LOCAL_DB_PATH=/var/lib/signoz/signoz.db
     volumes:
       - ./data/signoz:/var/lib/signoz
@@ -44,18 +30,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 500M
-    restart: on-failure
-
-  frontend:
-    image: signoz/frontend:0.41.0
-    container_name: signoz-frontend
-    depends_on:
-      - query-service
-    deploy:
-      resources:
-        limits:
-          memory: 100M
+          memory: 600M
     restart: on-failure
 
   otel-collector:
@@ -92,7 +67,7 @@ services:
       - ./data/caddy_data:/data
       - ./data/caddy_config:/config
     depends_on:
-      - frontend
+      - signoz
     deploy:
       resources:
         limits:

@@ -7,7 +7,8 @@
         admin {$SIGNOZ_ADMIN_PASSWORD_HASH}
     }
 
-    reverse_proxy signoz-frontend:3301 {
+    # Reverse proxy to the unified SigNoz service
+    reverse_proxy signoz:3301 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
     }
