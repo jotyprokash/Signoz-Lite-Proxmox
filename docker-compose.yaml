@@ -17,7 +17,7 @@ services:
     restart: on-failure
 
   signoz:
-    image: signoz/signoz:0.41.0
+    image: signoz/signoz:v0.122.0
     container_name: signoz-unified
     environment:
       - ClickHouseUrl=tcp://clickhouse:9000
@@ -34,7 +34,7 @@ services:
     restart: on-failure
 
   otel-collector:
-    image: signoz/signoz-otel-collector:0.88.10
+    image: signoz/signoz-otel-collector:v0.144.3
     container_name: signoz-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
