@@ -1,17 +1,11 @@
 <clickhouse>
-    <!-- Memory limits for resource-constrained environment (2GB RAM) -->
     <max_server_memory_usage_to_ram_ratio>0.4</max_server_memory_usage_to_ram_ratio>
-
-    <max_memory_usage>800000000</max_memory_usage>
-    
-    <!-- Reduce background pool size to save RAM -->
-    <background_pool_size>4</background_pool_size>
-    <background_move_pool_size>2</background_move_pool_size>
-    <background_schedule_pool_size>4</background_schedule_pool_size>
-    
-    <!-- Reduce thread pool size for low CPU/RAM -->
     <max_thread_pool_size>2</max_thread_pool_size>
+    <max_io_thread_pool_size>2</max_io_thread_pool_size>
     
-    <!-- Disable memory profiler to save overhead -->
-    <memory_profiler_step>0</memory_profiler_step>
+    <profiles>
+        <default>
+            <max_memory_usage>800000000</max_memory_usage>
+        </default>
+    </profiles>
 </clickhouse>

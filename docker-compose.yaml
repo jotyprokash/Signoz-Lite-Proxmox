@@ -6,10 +6,10 @@ services:
       - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/memory.xml
       - ./data/clickhouse:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
-      interval: 30s
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
     deploy:
       resources:
         limits:
