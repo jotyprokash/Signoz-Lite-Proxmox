@@ -25,8 +25,7 @@ services:
     volumes:
       - ./data/signoz:/var/lib/signoz
     depends_on:
-      clickhouse:
-        condition: service_healthy
+      - clickhouse
     deploy:
       resources:
         limits:
@@ -45,8 +44,7 @@ services:
       - "4317:4317"
       - "4318:4318"
     depends_on:
-      clickhouse:
-        condition: service_healthy
+      - clickhouse
     deploy:
       resources:
         limits:
