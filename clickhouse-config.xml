@@ -6,19 +6,4 @@
     <tcp_port>9000</tcp_port>
     <http_port>8123</http_port>
     <listen_host>0.0.0.0</listen_host>
-    <!-- Keep ClickHouse conservative enough to start reliably in a 2GB VM. -->
-    <max_server_memory_usage_to_ram_ratio>0.35</max_server_memory_usage_to_ram_ratio>
-    <max_thread_pool_size>2</max_thread_pool_size>
-    <max_io_thread_pool_size>2</max_io_thread_pool_size>
-    
-    <!-- Reduce cache sizes to save memory -->
-    <uncompressed_cache_size>16777216</uncompressed_cache_size>
-    <mark_cache_size>16777216</mark_cache_size>
-
-    <profiles>
-        <default>
-            <!-- Limit individual dashboard queries on very small hosts. -->
-            <max_memory_usage>250000000</max_memory_usage>
-        </default>
-    </profiles>
 </clickhouse>
