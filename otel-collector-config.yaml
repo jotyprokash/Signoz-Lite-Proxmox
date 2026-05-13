@@ -13,8 +13,8 @@ processors:
     send_batch_max_size: 2000
   memory_limiter:
     check_interval: 1s
-    limit_mib: 150
-    spike_limit_mib: 50
+    limit_mib: 120
+    spike_limit_mib: 30
   resourcedetection:
     detectors: [system]
 
