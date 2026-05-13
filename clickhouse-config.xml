@@ -13,7 +13,6 @@
     <background_message_broker_schedule_pool_size>2</background_message_broker_schedule_pool_size>
     <max_thread_pool_size>2</max_thread_pool_size>
     <max_io_thread_pool_size>2</max_io_thread_pool_size>
-    <memory_profiler_step>0</memory_profiler_step>
     
     <!-- Reduce cache sizes to save memory -->
     <uncompressed_cache_size>16777216</uncompressed_cache_size>
@@ -23,6 +22,7 @@
         <default>
             <!-- Limit individual dashboard queries on very small hosts. -->
             <max_memory_usage>250000000</max_memory_usage>
+            <memory_profiler_step>0</memory_profiler_step>
         </default>
     </profiles>
 </clickhouse>
