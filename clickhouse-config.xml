@@ -22,7 +22,6 @@
         <default>
             <!-- Limit individual dashboard queries on very small hosts. -->
             <max_memory_usage>250000000</max_memory_usage>
-            <memory_profiler_step>0</memory_profiler_step>
         </default>
     </profiles>
 </clickhouse>
