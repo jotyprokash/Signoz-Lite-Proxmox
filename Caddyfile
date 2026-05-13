@@ -1,8 +1,4 @@
-{
-    local_certs
-}
-
-192.168.1.17 {
+http://192.168.1.17 {
     basic_auth / {
         admin {$SIGNOZ_ADMIN_PASSWORD_HASH}
     }
