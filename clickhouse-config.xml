@@ -3,6 +3,8 @@
         <level>trace</level>
         <console>1</console>
     </logger>
+    <tcp_port>9000</tcp_port>
+    <http_port>8123</http_port>
     <listen_host>0.0.0.0</listen_host>
     <!-- Keep ClickHouse conservative enough to start reliably in a 2GB VM. -->
     <max_server_memory_usage_to_ram_ratio>0.35</max_server_memory_usage_to_ram_ratio>
