@@ -2,7 +2,7 @@
     local_certs
 }
 
-{$SIGNOZ_DOMAIN}, 192.168.1.17 {
+{$SIGNOZ_DOMAIN} {
     tls internal
     basic_auth / {
         admin {$SIGNOZ_ADMIN_PASSWORD_HASH}

@@ -13,7 +13,8 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
       interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 20
+      start_period: 90s
     restart: on-failure
 
   signoz:
@@ -25,7 +26,8 @@ services:
     volumes:
       - ./data/signoz:/var/lib/signoz
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -44,7 +46,8 @@ services:
       - "4317:4317"
       - "4318:4318"
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
     deploy:
       resources:
         limits:
