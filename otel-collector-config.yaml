@@ -20,7 +20,7 @@ processors:
 
 exporters:
   clickhousetraces:
-    dsn: tcp://clickhouse:9000/signoz_traces
+    datasource: tcp://clickhouse:9000/?database=signoz_traces
   signozclickhousemetrics:
     dsn: tcp://clickhouse:9000/signoz_metrics
   clickhouselogsexporter:
