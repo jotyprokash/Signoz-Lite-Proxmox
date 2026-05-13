@@ -45,11 +45,21 @@ if [ ! -f /swapfile ]; then
     sudo fallocate -l 4G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
-    sudo swapon /swapfile
     echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-    echo "Swap file created and enabled."
+    echo "Swap file created."
 else
     echo "Swap file already exists."
+fi
+
+if ! swapon --show=NAME --noheadings | grep -qx "/swapfile"; then
+    sudo swapon /swapfile
+    echo "Swap file enabled."
+else
+    echo "Swap file already enabled."
+fi
+
+if ! grep -q '^/swapfile none swap sw 0 0$' /etc/fstab; then
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 fi
 
 # 7. Configure Firewall
