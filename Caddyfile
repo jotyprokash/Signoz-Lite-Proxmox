@@ -8,7 +8,7 @@
     }
 
     # Reverse proxy to the unified SigNoz service
-    reverse_proxy signoz:3301 {
+    reverse_proxy signoz:8080 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
     }

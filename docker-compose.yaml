@@ -31,7 +31,7 @@ services:
         limits:
           memory: 450M
     ports:
-      - "3301:3301"
+      - "8080:8080"
     restart: on-failure
 
   otel-collector:
