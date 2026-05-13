@@ -22,9 +22,9 @@ exporters:
   clickhousetraces:
     datasource: tcp://clickhouse:9000/?database=signoz_traces
   signozclickhousemetrics:
-    datasource: tcp://clickhouse:9000/?database=signoz_metrics
+    dsn: tcp://clickhouse:9000/signoz_metrics
   clickhouselogsexporter:
-    datasource: tcp://clickhouse:9000/?database=signoz_logs
+    dsn: tcp://clickhouse:9000/signoz_logs
 
 service:
   pipelines:

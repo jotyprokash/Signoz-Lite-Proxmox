@@ -2,8 +2,12 @@
     <listen_host>0.0.0.0</listen_host>
     <!-- Allow ClickHouse to use up to 70% of available memory (will use swap if needed) -->
     <max_server_memory_usage_to_ram_ratio>0.7</max_server_memory_usage_to_ram_ratio>
+    <background_pool_size>4</background_pool_size>
+    <background_move_pool_size>2</background_move_pool_size>
+    <background_schedule_pool_size>4</background_schedule_pool_size>
     <max_thread_pool_size>2</max_thread_pool_size>
     <max_io_thread_pool_size>2</max_io_thread_pool_size>
+    <memory_profiler_step>0</memory_profiler_step>
     
     <!-- Reduce cache sizes to save memory -->
     <uncompressed_cache_size>64000000</uncompressed_cache_size>
