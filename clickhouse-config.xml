@@ -1,7 +1,8 @@
 <clickhouse>
     <listen_host>0.0.0.0</listen_host>
     <!-- Keep ClickHouse conservative enough to start reliably in a 2GB VM. -->
-    <max_server_memory_usage_to_ram_ratio>0.45</max_server_memory_usage_to_ram_ratio>
+    <max_server_memory_usage>500000000</max_server_memory_usage>
+    <max_server_memory_usage_to_ram_ratio>0.35</max_server_memory_usage_to_ram_ratio>
     <background_pool_size>4</background_pool_size>
     <background_common_pool_size>2</background_common_pool_size>
     <background_fetches_pool_size>2</background_fetches_pool_size>
@@ -21,7 +22,7 @@
     <profiles>
         <default>
             <!-- Limit individual dashboard queries on very small hosts. -->
-            <max_memory_usage>350000000</max_memory_usage>
+            <max_memory_usage>250000000</max_memory_usage>
         </default>
     </profiles>
 </clickhouse>
