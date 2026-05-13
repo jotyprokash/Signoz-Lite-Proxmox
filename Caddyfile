@@ -3,6 +3,7 @@
 }
 
 :443 {
+    tls internal
     basic_auth / {
         admin {$SIGNOZ_ADMIN_PASSWORD_HASH}
     }
