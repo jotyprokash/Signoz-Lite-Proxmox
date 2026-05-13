@@ -2,7 +2,7 @@
 
 # SigNoz Proxmox VM Setup Script
 # Version: Clean / Production-Ready
-# Optimization: 2GB RAM
+# Optimization: 3GB+ RAM
 
 set -e
 
@@ -57,6 +57,7 @@ SIGNOZ_DOMAIN=$SIGNOZ_DOMAIN
 SIGNOZ_ADMIN_PASSWORD_HASH='$SIGNOZ_PASSWORD_HASH'
 SIGNOZ_TOKENIZER_JWT_SECRET=$SIGNOZ_TOKENIZER_JWT_SECRET
 EOF
+sudo chown "$TARGET_UID:$TARGET_GID" .env
 
 # 6. Setup Swap (Crucial for 2GB RAM)
 echo "Setting up 4GB Swap file..."
@@ -108,5 +109,6 @@ else
 fi
 echo "2. Run: docker compose up -d"
 echo "3. Access SigNoz at: https://$SIGNOZ_DOMAIN"
-echo "   User: admin"
+echo "   Caddy basic auth user: admin"
+echo "   Caddy basic auth password: the password entered above"
 echo "-------------------------------------------------------"
