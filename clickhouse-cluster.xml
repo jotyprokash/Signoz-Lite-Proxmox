@@ -1,4 +1,9 @@
 <clickhouse>
+    <macros>
+        <shard>01</shard>
+        <replica>clickhouse</replica>
+    </macros>
+
     <remote_servers>
         <cluster>
             <shard>
