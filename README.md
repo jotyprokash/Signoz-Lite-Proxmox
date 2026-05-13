@@ -10,7 +10,7 @@ A resource-optimized SigNoz deployment for Proxmox VE, tuned for 2GB RAM environ
 
 ## Hardware Requirements
 *   **CPU**: 2 vCPUs
-*   **RAM**: 2GB (Static)
+*   **RAM**: 3GB minimum, 4GB recommended
 *   **Disk**: 40GB+ SSD
 *   **Swap**: 4GB (Provisioned by setup script)
 
@@ -39,4 +39,4 @@ A resource-optimized SigNoz deployment for Proxmox VE, tuned for 2GB RAM environ
 | Query Service | 500MB |
 | OTel Collector | 200MB |
 | Proxy (Caddy) | 100MB |
-| AlertManager | 100MB |
+| ZooKeeper | shared host memory |

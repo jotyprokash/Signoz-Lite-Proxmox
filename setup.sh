@@ -16,7 +16,7 @@ echo ""
 # 2. Update and Install Dependencies
 echo "Updating system and installing dependencies..."
 sudo apt-get update
-sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common ufw htop
+sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common ufw htop openssl
 
 # 3. Install Docker
 if ! command -v docker &> /dev/null; then
@@ -31,12 +31,14 @@ fi
 # 4. Generate Caddy Password Hash
 echo "Generating security tokens..."
 SIGNOZ_PASSWORD_HASH=$(docker run --rm caddy:2-alpine caddy hash-password --plaintext "$SIGNOZ_PASSWORD")
+SIGNOZ_TOKENIZER_JWT_SECRET=$(openssl rand -hex 32)
 
 # 5. Create .env file
 echo "Creating environment configuration..."
 cat <<EOF > .env
 SIGNOZ_DOMAIN=$SIGNOZ_DOMAIN
-SIGNOZ_ADMIN_PASSWORD_HASH=$SIGNOZ_PASSWORD_HASH
+SIGNOZ_ADMIN_PASSWORD_HASH='$SIGNOZ_PASSWORD_HASH'
+SIGNOZ_TOKENIZER_JWT_SECRET=$SIGNOZ_TOKENIZER_JWT_SECRET
 EOF
 
 # 6. Setup Swap (Crucial for 2GB RAM)
@@ -74,8 +76,8 @@ echo "Firewall configured. Ports 22, 80, 443, 4317, 4318 open."
 
 # 8. Create Data Directories
 echo "Creating data directories..."
-mkdir -p data/clickhouse data/alertmanager data/signoz data/caddy_data data/caddy_config
-sudo chown -R 1000:1000 data/clickhouse
+mkdir -p data/clickhouse data/zookeeper data/alertmanager data/signoz data/caddy_data data/caddy_config
+sudo chown -R 1000:1000 data/clickhouse data/zookeeper
 
 echo ""
 echo "Setup Complete!"

@@ -1,14 +1,42 @@
 services:
+  zookeeper:
+    image: signoz/zookeeper:3.7.1
+    container_name: signoz-zookeeper-1
+    hostname: zookeeper
+    user: root
+    environment:
+      - ZOO_SERVER_ID=1
+      - ALLOW_ANONYMOUS_LOGIN=yes
+      - ZOO_AUTOPURGE_INTERVAL=1
+      - ZOO_ENABLE_PROMETHEUS_METRICS=yes
+      - ZOO_PROMETHEUS_METRICS_PORT_NUMBER=9141
+    volumes:
+      - ./data/zookeeper:/bitnami/zookeeper
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -m 2 http://localhost:8080/commands/ruok | grep error | grep null"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
   clickhouse:
-    image: clickhouse/clickhouse-server:24.1.2-alpine
+    image: clickhouse/clickhouse-server:25.5.6
     container_name: signoz-clickhouse
+    hostname: clickhouse
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
     ulimits:
+      nproc: 65535
       nofile:
         soft: 262144
         hard: 262144
     volumes:
       - ./clickhouse-config.xml:/etc/clickhouse-server/config.d/memory.xml
+      - ./clickhouse-cluster.xml:/etc/clickhouse-server/config.d/cluster.xml
       - ./data/clickhouse:/var/lib/clickhouse
+    depends_on:
+      zookeeper:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 30s
@@ -22,12 +50,17 @@ services:
     container_name: signoz-unified
     environment:
       - ClickHouseUrl=tcp://clickhouse:9000
+      - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://clickhouse:9000
       - SIGNOZ_LOCAL_DB_PATH=/var/lib/signoz/signoz.db
+      - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
+      - SIGNOZ_TOKENIZER_JWT_SECRET=${SIGNOZ_TOKENIZER_JWT_SECRET:-change-this-jwt-secret-in-env}
     volumes:
       - ./data/signoz:/var/lib/signoz
     depends_on:
       clickhouse:
         condition: service_healthy
+      signoz-telemetrystore-migrator:
+        condition: service_completed_successfully
     deploy:
       resources:
         limits:
@@ -37,21 +70,48 @@ services:
   otel-collector:
     image: signoz/signoz-otel-collector:v0.144.3
     container_name: signoz-otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - /signoz-otel-collector migrate sync check && /signoz-otel-collector --config=/etc/otel-collector-config.yaml
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
+      - LOW_CARDINAL_EXCEPTION_GROUPING=false
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
+      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     ports:
       - "4317:4317"
       - "4318:4318"
     depends_on:
       clickhouse:
         condition: service_healthy
+      signoz-telemetrystore-migrator:
+        condition: service_completed_successfully
     deploy:
       resources:
         limits:
           memory: 150M
+    restart: on-failure
+
+  signoz-telemetrystore-migrator:
+    image: signoz/signoz-otel-collector:v0.144.3
+    container_name: signoz-telemetrystore-migrator
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - /signoz-otel-collector migrate bootstrap && /signoz-otel-collector migrate sync up && /signoz-otel-collector migrate async up
+    environment:
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_DSN=tcp://clickhouse:9000
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_CLUSTER=cluster
+      - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
+      - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
+    depends_on:
+      clickhouse:
+        condition: service_healthy
     restart: on-failure
 
   caddy:
