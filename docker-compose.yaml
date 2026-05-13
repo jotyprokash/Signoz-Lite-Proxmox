@@ -55,8 +55,7 @@ services:
     image: caddy:2-alpine
     container_name: signoz-proxy
     ports:
-      - "80:80"
-      - "443:443"
+      - "8443:443"
     environment:
       - SIGNOZ_DOMAIN=${SIGNOZ_DOMAIN}
       - SIGNOZ_ADMIN_PASSWORD_HASH=${SIGNOZ_ADMIN_PASSWORD_HASH}
