@@ -8,6 +8,12 @@ set -e
 
 echo "Starting SigNoz Environment Setup..."
 
+TARGET_USER="${SUDO_USER:-$USER}"
+TARGET_UID="$(id -u "$TARGET_USER")"
+TARGET_GID="$(id -g "$TARGET_USER")"
+DOCKER_GROUP_CHANGED=0
+DOCKER_CMD="docker"
+
 # 1. Prompt for User Configuration
 read -p "Enter Internal Domain (e.g., signoz.internal): " SIGNOZ_DOMAIN
 read -s -p "Enter Admin Password: " SIGNOZ_PASSWORD
@@ -23,14 +29,25 @@ if ! command -v docker &> /dev/null; then
     echo "Installing Docker..."
     curl -fsSL https://get.docker.com -o get-docker.sh
     sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
 else
     echo "Docker already installed."
 fi
 
+if ! id -nG "$TARGET_USER" | tr ' ' '\n' | grep -qx docker; then
+    echo "Adding $TARGET_USER to docker group..."
+    sudo usermod -aG docker "$TARGET_USER"
+    DOCKER_GROUP_CHANGED=1
+else
+    echo "$TARGET_USER is already in docker group."
+fi
+
+if ! docker ps >/dev/null 2>&1; then
+    DOCKER_CMD="sudo docker"
+fi
+
 # 4. Generate Caddy Password Hash
 echo "Generating security tokens..."
-SIGNOZ_PASSWORD_HASH=$(docker run --rm caddy:2-alpine caddy hash-password --plaintext "$SIGNOZ_PASSWORD")
+SIGNOZ_PASSWORD_HASH=$($DOCKER_CMD run --rm caddy:2-alpine caddy hash-password --plaintext "$SIGNOZ_PASSWORD")
 SIGNOZ_TOKENIZER_JWT_SECRET=$(openssl rand -hex 32)
 
 # 5. Create .env file
@@ -77,13 +94,18 @@ echo "Firewall configured. Ports 22, 80, 443, 4317, 4318 open."
 # 8. Create Data Directories
 echo "Creating data directories..."
 mkdir -p data/clickhouse data/zookeeper data/alertmanager data/signoz data/caddy_data data/caddy_config
-sudo chown -R 1000:1000 data/clickhouse data/zookeeper
+sudo chown -R "$TARGET_UID:$TARGET_GID" data/clickhouse data/zookeeper data/signoz data/caddy_data data/caddy_config
 
 echo ""
 echo "Setup Complete!"
 echo "-------------------------------------------------------"
 echo "Next Steps:"
-echo "1. Log out and log back in (to apply docker group changes)."
+if [ "$DOCKER_GROUP_CHANGED" -eq 1 ]; then
+    echo "1. Apply docker group access now with: newgrp docker"
+    echo "   Or log out and log back in before running docker without sudo."
+else
+    echo "1. Docker group access is already active for $TARGET_USER."
+fi
 echo "2. Run: docker compose up -d"
 echo "3. Access SigNoz at: https://$SIGNOZ_DOMAIN"
 echo "   User: admin"
