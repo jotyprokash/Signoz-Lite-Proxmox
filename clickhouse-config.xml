@@ -1,6 +1,6 @@
 <clickhouse>
     <logger>
-        <level>trace</level>
+        <level>warning</level>
         <console>1</console>
     </logger>
     <tcp_port>9000</tcp_port>
