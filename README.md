@@ -6,11 +6,28 @@
 [![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Protocol-blue?style=flat-square&logo=opentelemetry)](https://opentelemetry.io)
 [![ClickHouse](https://img.shields.io/badge/ClickHouse-25.5.6-yellow?style=flat-square&logo=clickhouse)](https://clickhouse.com)
 
-A compact SigNoz deployment for Proxmox or a small Ubuntu VM. It runs SigNoz, ClickHouse, ZooKeeper, the SigNoz OpenTelemetry Collector, and Caddy with internal HTTPS and basic auth.
+A compact SigNoz deployment for a Proxmox-hosted Ubuntu VM. It runs SigNoz, ClickHouse, ZooKeeper, the SigNoz OpenTelemetry Collector, Caddy, and optional Cloudflare Tunnel.
+
+The production-friendly model is:
+
+- public dashboard through Cloudflare Tunnel
+- private EC2 telemetry over Tailscale to OTLP `4317`
+- no public exposure for OTLP `4317` or `4318`
+- Caddy basic auth in front of the SigNoz UI
 
 ## Architecture
 
 ![SigNoz Proxmox production observability architecture](assets/signoz-production-architecture.png)
+
+## Deployment Modes
+
+| Mode | Dashboard | OTLP ingestion | Use case |
+| :--- | :--- | :--- | :--- |
+| Internal-only | Internal DNS / hosts entry | Localhost or LAN bind | Lab or private LAN |
+| Public dashboard | Cloudflare Tunnel | Private only | Access SigNoz UI from the internet without exposing origin IP |
+| EC2 telemetry | Cloudflare Tunnel | Tailscale private IP | AWS EC2 apps export telemetry securely to on-prem Proxmox |
+
+The recommended production path is **Public dashboard + EC2 telemetry**.
 
 ## Requirements
 
@@ -22,19 +39,30 @@ A compact SigNoz deployment for Proxmox or a small Ubuntu VM. It runs SigNoz, Cl
 | OS | Ubuntu 22.04/24.04 |
 | Swap | 4GB, created by `setup.sh` |
 
+Required tools on the VM:
+
+- Docker / Docker Compose
+- UFW
+- curl
+- openssl
+
+`setup.sh` installs these on Ubuntu.
+
 ## Ports
 
-| Port | Purpose |
-| :--- | :--- |
-| 22 | SSH |
-| 80 | HTTP redirect / Caddy |
-| 443 | SigNoz UI over HTTPS |
-| 4317 | OTLP gRPC |
-| 4318 | OTLP HTTP/protobuf |
+| Port | Default exposure | Purpose |
+| :--- | :--- | :--- |
+| 22 | Host firewall allowed | SSH |
+| 80 | Host firewall allowed by setup | Caddy HTTP redirect / local access |
+| 443 | Host firewall allowed by setup | Caddy HTTPS / local access |
+| 4317 | Denied by UFW, bound to `127.0.0.1` by default | OTLP gRPC |
+| 4318 | Denied by UFW, bound to `127.0.0.1` by default | OTLP HTTP/protobuf |
 
-## Deploy
+For Cloudflare Tunnel-only deployments, your router does not need inbound forwards for `80`, `443`, `4317`, or `4318`.
 
-Clone the repository on the server:
+## Quick Start
+
+Clone the repository on the Proxmox VM:
 
 ```bash
 sudo apt-get update
@@ -43,58 +71,91 @@ git clone https://github.com/jotyprokash/Signoz-Lite-Proxmox.git
 cd Signoz-Lite-Proxmox
 ```
 
-Run the setup script:
+Run setup:
 
 ```bash
 chmod +x setup.sh
 sudo ./setup.sh
 ```
 
-The script asks for:
+Prompts:
 
 | Prompt | Example |
 | :--- | :--- |
-| Internal Domain | `monitor.infra.internal` |
-| Admin Password | password for Caddy basic auth |
+| Dashboard Domain | `monitor.infra.internal` or `signoz.example.com` |
+| Admin Password | Password for Caddy basic auth |
 
-If the script says Docker group access changed, apply it in the same shell:
+If Docker group access changed, apply it in the same shell:
 
 ```bash
 newgrp docker
 ```
 
-Start the stack:
+Start internal-only mode:
 
 ```bash
 docker compose up -d
 ```
 
-First startup usually takes 1-3 minutes because ClickHouse starts, the telemetry migrator creates all schema tables, and then SigNoz/collector start.
+First startup usually takes 1-3 minutes while ClickHouse starts and the telemetry migrator creates schema tables.
 
-## DNS
+## Environment
 
-For an internal-only domain, every machine that opens the dashboard or sends telemetry must resolve the domain to the server IP.
+`setup.sh` creates `.env`. A documented template is available in `.env.example`.
 
-On Linux/macOS clients:
+Important variables:
+
+| Variable | Purpose |
+| :--- | :--- |
+| `SIGNOZ_DOMAIN` | Dashboard hostname used by Caddy |
+| `SIGNOZ_ADMIN_PASSWORD_HASH` | Caddy basic auth password hash |
+| `SIGNOZ_TOKENIZER_JWT_SECRET` | SigNoz JWT secret |
+| `CLOUDFLARED_TOKEN` | Cloudflare Tunnel token |
+| `OTEL_GRPC_BIND` | Host IP to bind OTLP gRPC `4317` |
+| `OTEL_HTTP_BIND` | Host IP to bind OTLP HTTP `4318` |
+
+OTLP binds are safe by default:
+
+```env
+OTEL_GRPC_BIND=127.0.0.1
+OTEL_HTTP_BIND=127.0.0.1
+```
+
+For EC2 telemetry over Tailscale, set both to the Proxmox VM Tailscale IP:
+
+```env
+OTEL_GRPC_BIND=100.x.x.x
+OTEL_HTTP_BIND=100.x.x.x
+```
+
+## Internal-Only Access
+
+For an internal-only dashboard, every client that opens SigNoz must resolve the dashboard domain to the VM IP.
+
+Example Linux/macOS hosts entry:
 
 ```bash
 echo "192.168.1.17 monitor.infra.internal" | sudo tee -a /etc/hosts
 ```
 
-Replace `192.168.1.17` and `monitor.infra.internal` with your server IP and chosen domain.
+Open:
 
-## Cloudflare Tunnel With A Namecheap Domain
+```text
+https://monitor.infra.internal
+```
+
+Caddy basic auth:
+
+```text
+Username: admin
+Password: the Admin Password entered during setup.sh
+```
+
+The browser may show a certificate warning because this stack uses Caddy internal certificates. That is expected unless you trust the Caddy local CA on your clients.
+
+## Secure Public Dashboard With Cloudflare Tunnel
 
 Use this when the VM is behind Proxmox/home NAT and you want `https://signoz.example.com` without exposing your public IP.
-
-Recommended public layout:
-
-| Hostname | Cloudflare Tunnel service | Notes |
-| :--- | :--- | :--- |
-| `signoz.example.com` | `https://caddy:443` | SigNoz UI through existing Caddy basic auth |
-| `otel.example.com` | `http://otel-collector:4318` | Optional OTLP HTTP/protobuf ingestion |
-
-Keep OTLP gRPC on `4317` private unless you are using Cloudflare private network routing/WARP. Cloudflare public hostname routing is the clean fit for the dashboard and OTLP HTTP on `4318`; it is not the right default for public OTLP gRPC.
 
 ### 1. Move Namecheap DNS To Cloudflare
 
@@ -103,7 +164,7 @@ Keep OTLP gRPC on `4317` private unless you are using Cloudflare private network
 3. In Namecheap, set the domain's nameservers to the Cloudflare nameservers.
 4. Wait until Cloudflare marks the zone active.
 
-Do not create `A` records pointing to your home/public IP for this stack. The tunnel creates Cloudflare-managed DNS records that point to the tunnel instead.
+Do not create `A` records pointing to your home/public IP for this stack. The tunnel creates Cloudflare-managed DNS records that point to Cloudflare instead.
 
 ### 2. Create The Tunnel
 
@@ -114,39 +175,29 @@ In Cloudflare Zero Trust:
 3. Choose Docker as the connector environment.
 4. Copy the tunnel token.
 
-Add the token to `.env` on the server:
+Add the token to `.env`:
 
 ```bash
 printf '\nCLOUDFLARED_TOKEN=%s\n' 'paste-your-cloudflare-tunnel-token-here' >> .env
 ```
 
-Set your public dashboard domain in `.env`:
+Set your public dashboard hostname:
 
-```bash
+```env
 SIGNOZ_DOMAIN=signoz.example.com
 ```
 
-Replace `signoz.example.com` with your real subdomain.
+### 3. Route The Public Hostname
 
-### 3. Route The Public Hostnames
-
-In the tunnel's **Public Hostnames** settings, add:
+In the tunnel's **Public Hostnames** settings:
 
 | Subdomain | Domain | Type | URL | Extra setting |
 | :--- | :--- | :--- | :--- | :--- |
 | `signoz` | `example.com` | `HTTPS` | `caddy:443` | Enable **No TLS Verify** |
 
-`No TLS Verify` is needed because this repo's Caddy config uses an internal Caddy certificate between `cloudflared` and Caddy. The browser still gets a normal Cloudflare-managed public certificate at the edge.
+`No TLS Verify` is needed because this repo uses Caddy internal TLS between `cloudflared` and Caddy. The browser still receives a normal Cloudflare-managed public certificate at the edge.
 
-Optional OTLP HTTP ingestion:
-
-| Subdomain | Domain | Type | URL |
-| :--- | :--- | :--- | :--- |
-| `otel` | `example.com` | `HTTP` | `otel-collector:4318` |
-
-If you expose `otel.example.com`, protect it with Cloudflare Access service tokens or keep it restricted to known clients. Telemetry endpoints are write endpoints; leaving them open invites noise and storage growth.
-
-### 4. Start With Tunnel Enabled
+Start with the tunnel profile:
 
 ```bash
 docker compose --profile cloudflare up -d
@@ -165,73 +216,110 @@ Open:
 https://signoz.example.com
 ```
 
-You should see Caddy basic auth first, then SigNoz login.
+You should see Caddy basic auth first, then the SigNoz login.
 
-### 5. Lock Down The VM
+## Private EC2 Telemetry With Tailscale
 
-Cloudflare Tunnel makes outbound connections from the VM, so your router does not need inbound port forwards for `80`, `443`, `4317`, or `4318`.
+This is the recommended way to send telemetry from AWS EC2 to the Proxmox VM without exposing OTLP to the public internet.
 
-For a tunnel-only deployment:
+Install Tailscale on the Proxmox VM:
 
 ```bash
-sudo ufw delete allow 80/tcp
-sudo ufw delete allow 443/tcp
-sudo ufw delete allow 4317/tcp
-sudo ufw delete allow 4318/tcp
-sudo ufw allow 22/tcp
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+tailscale ip -4
+```
+
+Suppose the Proxmox VM Tailscale IP is:
+
+```text
+100.90.12.34
+```
+
+Update `.env`:
+
+```env
+OTEL_GRPC_BIND=100.90.12.34
+OTEL_HTTP_BIND=100.90.12.34
+```
+
+Restart the stack:
+
+```bash
+docker compose --profile cloudflare up -d
+```
+
+Lock OTLP to Tailscale at the host firewall:
+
+```bash
+sudo ufw insert 1 allow in on tailscale0 to any port 4317 proto tcp
+sudo ufw insert 1 allow in on tailscale0 to any port 4318 proto tcp
+sudo ufw deny 4317/tcp
+sudo ufw deny 4318/tcp
 sudo ufw reload
 ```
 
-Also remove any router port forwarding rules to this VM. If SSH should not be reachable from the internet, keep `22` allowed only from your LAN, VPN, or management IP.
+Install Tailscale on each EC2 instance or on a dedicated EC2 OpenTelemetry Collector:
 
-### 6. Public OTLP HTTP Client Example
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+tailscale status
+```
 
-For OTLP HTTP/protobuf through Cloudflare Tunnel:
+Configure EC2 applications to export telemetry to the Proxmox VM Tailscale IP:
 
 ```bash
 export OTEL_SERVICE_NAME=my-service
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel.example.com
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://100.90.12.34:4317
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+```
+
+For OTLP HTTP/protobuf:
+
+```bash
+export OTEL_SERVICE_NAME=my-service
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://100.90.12.34:4318
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 ```
 
-If you protect `otel.example.com` with a Cloudflare Access service token, pass the token headers from your OpenTelemetry SDK/exporter:
+Use the Tailscale IP for telemetry. Do not use the public dashboard domain for EC2 OTLP traffic.
 
-```bash
-export OTEL_EXPORTER_OTLP_HEADERS='CF-Access-Client-Id=your-client-id,CF-Access-Client-Secret=your-client-secret'
-```
-
-For local/LAN clients, the existing direct endpoints still work:
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://monitor.infra.internal:4318
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-```
-
-## Access
-
-Open:
+For multiple EC2 instances, a cleaner production pattern is:
 
 ```text
-https://monitor.infra.internal
+EC2 apps -> AWS-side OpenTelemetry Collector -> Tailscale -> Proxmox SigNoz collector :4317
 ```
 
-Caddy basic auth:
+That way only one or a few AWS collector nodes need access to the Proxmox telemetry endpoint.
+
+## Security Checklist
+
+- Do not expose `4317` or `4318` publicly.
+- Do not create public `otel.example.com` or `grpc.example.com` records for this deployment model.
+- Do not create DNS `A` records pointing to your home/proxmox public IP.
+- Remove router port forwards for `80`, `443`, `4317`, and `4318` when using Cloudflare Tunnel.
+- Keep Caddy basic auth enabled.
+- Consider Cloudflare Access in front of `signoz.example.com`.
+- Restrict SSH to LAN, VPN, Tailscale, or a known management IP.
+
+Expected scan posture:
 
 ```text
-Username: admin
-Password: the Admin Password entered during setup.sh
+nmap signoz.example.com
+  -> Cloudflare edge, HTTPS 443
+
+nmap your-origin-public-ip
+  -> no public 4317/4318
+  -> no public 443 if Cloudflare Tunnel is the only public path
 ```
-
-The browser may show a certificate warning because this stack uses Caddy internal certificates. That is expected for an internal domain unless you install/trust the Caddy local CA certificate on your client machines.
-
-Inside SigNoz, create the first workspace admin account from the UI. SigNoz requires a strong password for that app account.
 
 ## Verify
 
 Check containers:
 
 ```bash
-docker ps
+docker compose ps
 docker ps -a | grep signoz-telemetrystore-migrator
 ```
 
@@ -256,41 +344,27 @@ docker exec signoz-clickhouse clickhouse-client --query "SHOW TABLES FROM signoz
 
 Each command should return table names. If the table lists are empty, the telemetry migrator did not complete.
 
-Check collector endpoints:
+Check bound OTLP listeners on the VM:
 
 ```bash
-sudo apt-get install -y nmap
-nmap -p 4317,4318 monitor.infra.internal
+ss -ltnp | grep -E ':4317|:4318'
 ```
 
-Expected:
+For Tailscale mode, you should see the Proxmox Tailscale IP bound to `4317` and `4318`, not `0.0.0.0`.
 
-```text
-4317/tcp open
-4318/tcp open
-```
-
-## OTEL Endpoints
-
-Give developers one of these endpoints:
-
-For OTLP HTTP/protobuf:
+From an EC2 instance joined to the same Tailscale network:
 
 ```bash
-export OTEL_SERVICE_NAME=my-service
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://monitor.infra.internal:4318
-export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+nc -vz 100.90.12.34 4317
+nc -vz 100.90.12.34 4318
 ```
 
-For OTLP gRPC:
+Check Cloudflare Tunnel:
 
 ```bash
-export OTEL_SERVICE_NAME=my-service
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://monitor.infra.internal:4317
-export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+docker logs --tail 100 signoz-cloudflared
+curl -Ik https://signoz.example.com
 ```
-
-Use `http://` for the collector endpoints in this stack. Caddy protects only the dashboard on ports 80/443; the OTEL collector listens directly on 4317/4318.
 
 ## Common Fixes
 
@@ -311,6 +385,37 @@ docker logs --tail 120 signoz-telemetrystore-migrator
 
 The migrator must show `Exited (0)`.
 
+If the Cloudflare Tunnel is not reachable:
+
+```bash
+docker logs --tail 100 signoz-cloudflared
+docker compose --profile cloudflare up -d
+```
+
+Confirm the tunnel public hostname points to:
+
+```text
+https://caddy:443
+```
+
+with **No TLS Verify** enabled.
+
+If EC2 cannot reach OTLP:
+
+```bash
+tailscale status
+tailscale ping 100.90.12.34
+nc -vz 100.90.12.34 4317
+sudo ufw status numbered
+```
+
+Confirm `.env` contains the Proxmox VM Tailscale IP:
+
+```env
+OTEL_GRPC_BIND=100.90.12.34
+OTEL_HTTP_BIND=100.90.12.34
+```
+
 If you need a clean ClickHouse re-initialization:
 
 ```bash
@@ -321,3 +426,36 @@ docker compose up -d
 ```
 
 Only do this when you are okay starting ClickHouse telemetry storage fresh.
+
+## Maintenance
+
+Update containers:
+
+```bash
+docker compose pull
+docker compose --profile cloudflare up -d
+```
+
+Check logs:
+
+```bash
+docker compose logs -f
+docker logs --tail 100 signoz-otel-collector
+docker logs --tail 100 signoz-unified
+```
+
+Check disk usage:
+
+```bash
+docker system df
+du -sh data/*
+```
+
+Back up at minimum:
+
+```text
+.env
+data/signoz
+data/clickhouse
+data/zookeeper
+```

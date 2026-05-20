@@ -15,7 +15,7 @@ DOCKER_GROUP_CHANGED=0
 DOCKER_CMD="docker"
 
 # 1. Prompt for User Configuration
-read -p "Enter Internal Domain (e.g., signoz.internal): " SIGNOZ_DOMAIN
+read -p "Enter Dashboard Domain (e.g., monitor.infra.internal or signoz.example.com): " SIGNOZ_DOMAIN
 read -s -p "Enter Admin Password: " SIGNOZ_PASSWORD
 echo ""
 
@@ -56,6 +56,9 @@ cat <<EOF > .env
 SIGNOZ_DOMAIN=$SIGNOZ_DOMAIN
 SIGNOZ_ADMIN_PASSWORD_HASH='$SIGNOZ_PASSWORD_HASH'
 SIGNOZ_TOKENIZER_JWT_SECRET=$SIGNOZ_TOKENIZER_JWT_SECRET
+OTEL_GRPC_BIND=127.0.0.1
+OTEL_HTTP_BIND=127.0.0.1
+CLOUDFLARED_TOKEN=
 EOF
 sudo chown "$TARGET_UID:$TARGET_GID" .env
 
@@ -87,10 +90,10 @@ echo "Configuring UFW Firewall..."
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-sudo ufw allow 4317/tcp
-sudo ufw allow 4318/tcp
+sudo ufw deny 4317/tcp
+sudo ufw deny 4318/tcp
 sudo ufw --force enable
-echo "Firewall configured. Ports 22, 80, 443, 4317, 4318 open."
+echo "Firewall configured. Ports 22, 80, 443 are open. OTLP ports 4317 and 4318 are denied by default."
 
 # 8. Create Data Directories
 echo "Creating data directories..."
@@ -111,4 +114,6 @@ echo "2. Run: docker compose up -d"
 echo "3. Access SigNoz at: https://$SIGNOZ_DOMAIN"
 echo "   Caddy basic auth user: admin"
 echo "   Caddy basic auth password: the password entered above"
+echo "4. For EC2 telemetry over Tailscale, set OTEL_GRPC_BIND/OTEL_HTTP_BIND in .env to this VM's Tailscale IP."
+echo "5. For Cloudflare Tunnel, add CLOUDFLARED_TOKEN to .env and run: docker compose --profile cloudflare up -d"
 echo "-------------------------------------------------------"

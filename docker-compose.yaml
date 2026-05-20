@@ -94,8 +94,8 @@ services:
       - SIGNOZ_OTEL_COLLECTOR_CLICKHOUSE_REPLICATION=true
       - SIGNOZ_OTEL_COLLECTOR_TIMEOUT=10m
     ports:
-      - "4317:4317"
-      - "4318:4318"
+      - "${OTEL_GRPC_BIND:-127.0.0.1}:4317:4317"
+      - "${OTEL_HTTP_BIND:-127.0.0.1}:4318:4318"
     depends_on:
       clickhouse:
         condition: service_healthy
