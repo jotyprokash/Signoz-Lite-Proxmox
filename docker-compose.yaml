@@ -147,6 +147,20 @@ services:
           memory: 80M
     restart: unless-stopped
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: signoz-cloudflared
+    profiles:
+      - cloudflare
+    logging: *default-logging
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:-}
+    depends_on:
+      - caddy
+      - otel-collector
+    restart: unless-stopped
+
 networks:
   default:
     name: signoz-network
