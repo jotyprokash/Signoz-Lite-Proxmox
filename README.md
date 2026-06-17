@@ -97,3 +97,7 @@ OTEL_HTTP_BIND=100.x.x.x
 ## Maintenance
 
 Operational commands, verification steps, troubleshooting, and backup notes are in [docs/deployment.md](docs/deployment.md).
+
+## EC2 App Onboarding
+
+For API-only tracing without changing the app codebase, use the external runtime toolkit in [ec2-observability](ec2-observability/).
