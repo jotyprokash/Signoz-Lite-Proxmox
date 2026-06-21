@@ -33,7 +33,9 @@ const sdk = new NodeSDK({
     '@opentelemetry/instrumentation-connect': { enabled: false },
     '@opentelemetry/instrumentation-dns': { enabled: false },
     '@opentelemetry/instrumentation-fs': { enabled: false },
-    '@opentelemetry/instrumentation-express': { enabled: false },
+    '@opentelemetry/instrumentation-express': {
+      ignoreLayersType: ['router', 'middleware', 'request_handler'],
+    },
     '@opentelemetry/instrumentation-koa': { enabled: false },
     '@opentelemetry/instrumentation-restify': { enabled: false },
     '@opentelemetry/instrumentation-router': { enabled: false },
