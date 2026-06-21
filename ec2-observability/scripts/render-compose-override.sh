@@ -166,7 +166,7 @@ EOF
       OTEL_NODE_IGNORED_PATHS: /health,/ready,/live,/metrics
       OTEL_TRACES_SAMPLER: parentbased_traceidratio
       OTEL_TRACES_SAMPLER_ARG: "${SAMPLE_RATIO}"
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=${ENVIRONMENT},service.namespace=${NAMESPACE},service.type=api,host.type=ec2,cloud.provider=aws
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=${ENVIRONMENT},deployment.environment=${ENVIRONMENT},service.namespace=${NAMESPACE},service.type=api,host.type=ec2,cloud.provider=aws
     volumes:
       - ${NODE_AUTO_DIR}:/otel-node:ro
 EOF

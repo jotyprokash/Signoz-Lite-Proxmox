@@ -127,6 +127,21 @@ verify() {
     docker exec "${container}" test -d /otel-node/node_modules
     docker exec "${container}" node -e \
       "require.resolve('/otel-node/node_modules/@opentelemetry/sdk-node')"
+
+    health_status="$(docker inspect -f \
+      '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
+      "${container}")"
+    if [[ "${health_status}" != "none" ]]; then
+      for _ in {1..30}; do
+        health_status="$(docker inspect -f '{{.State.Health.Status}}' "${container}")"
+        [[ "${health_status}" == "healthy" ]] && break
+        [[ "${health_status}" == "unhealthy" ]] && \
+          die "Service ${service} became unhealthy"
+        sleep 2
+      done
+      [[ "${health_status}" == "healthy" ]] || \
+        die "Service ${service} did not become healthy within 60 seconds"
+    fi
   done
 
   collector="$(compose ps -q otel-collector)"

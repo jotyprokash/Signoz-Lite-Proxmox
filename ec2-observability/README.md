@@ -24,6 +24,7 @@ The command is idempotent. It:
 - creates or updates the EC2 collector and selected application services
 - verifies the mount, packages, containers, and collector health endpoint
 - excludes `/health`, `/ready`, `/live`, and `/metrics` from incoming HTTP traces
+- suppresses low-value Express middleware spans while retaining request and dependency spans
 
 The application repository remains unchanged.
 
