@@ -6,16 +6,10 @@
 - Application containers already running
 - Private/Tailscale access to SigNoz OTLP port `4317`
 
-## One-Time Setup
+## New Server
 
-Only `/etc/signoz-ec2-observability.env` is active. The repository file is a public template used once when preparing a new server:
-
-| File | Purpose |
-| :--- | :--- |
-| `ec2-observability/server.env.example` | Generic template tracked in Git; never contains real server values |
-| `/etc/signoz-ec2-observability.env` | Private active configuration created separately on each EC2 host |
-
-The application's own `.env` files are unrelated and are not modified by this toolkit.
+The repository template is public. Each server uses one private active file:
+`/etc/signoz-ec2-observability.env`. Application `.env` files are untouched.
 
 ```bash
 cd /opt/Signoz-Lite-Proxmox
@@ -28,7 +22,7 @@ sudo install -m 600 \
 sudoedit /etc/signoz-ec2-observability.env
 ```
 
-Replace the example values:
+Edit only the server-specific values:
 
 ```env
 APP_DIR="/absolute/path/to/application"
@@ -40,39 +34,27 @@ SERVICE_NAMESPACE="application-namespace"
 DEPLOYMENT_ENVIRONMENT="development"
 
 SIGNOZ_OTLP_ENDPOINT="private-signoz-ip:4317"
-TRACE_SAMPLE_RATIO="0.10"
-OTEL_IGNORED_PATHS="/health,/ready,/live,/metrics"
-
-ENABLE_DOCKER_LOGS="true"
-DOCKER_LOG_MAX_SIZE="20m"
-DOCKER_LOG_MAX_FILES="3"
-DOCKER_SOCKET_PROXY_IMAGE="ghcr.io/tecnativa/docker-socket-proxy:v0.4.2"
-
-INSTALL_ROOT="/opt/signoz-ec2-observability"
-COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.153.0"
 ```
 
 Do not add application secrets.
 
-`ENABLE_DOCKER_LOGS="true"` collects Docker stdout/stderr only from services in
-`OTEL_SERVICES`, starting at the end of each log file. The generated override
-rotates enrolled service logs at `20m` and keeps three files. The collector
-uses a private, read-only Docker API proxy; it does not use or publish host
-port `2375`.
-
-## Install
+## Enable And Install
 
 ```bash
 cd /opt/Signoz-Lite-Proxmox
 
-sudo ./ec2-observability/scripts/onboard.sh preflight \
+sudo ./ec2-observability/scripts/onboard.sh enable-logs \
   /etc/signoz-ec2-observability.env
 
 sudo ./ec2-observability/scripts/onboard.sh install \
   /etc/signoz-ec2-observability.env
 ```
 
-## Update
+`enable-logs` backs up the private configuration, applies pinned defaults, and
+runs preflight without restarting containers. `install` applies the changes.
+Only services in `OTEL_SERVICES` are collected, with `20m` x 3 local rotation.
+
+## Update Or Verify
 
 ```bash
 cd /opt/Signoz-Lite-Proxmox
@@ -80,12 +62,8 @@ git pull --ff-only
 
 sudo ./ec2-observability/scripts/onboard.sh install \
   /etc/signoz-ec2-observability.env
-```
 
-## Verify
-
-```bash
-sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh verify \
+sudo ./ec2-observability/scripts/onboard.sh verify \
   /etc/signoz-ec2-observability.env
 ```
 

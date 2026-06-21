@@ -3,6 +3,10 @@ set -euo pipefail
 
 ACTION="${1:-install}"
 CONFIG_FILE="${2:-}"
+DEFAULT_COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.153.0"
+DEFAULT_DOCKER_SOCKET_PROXY_IMAGE="ghcr.io/tecnativa/docker-socket-proxy:v0.4.2"
+DEFAULT_DOCKER_LOG_MAX_SIZE="20m"
+DEFAULT_DOCKER_LOG_MAX_FILES="3"
 
 if [[ -n "${CONFIG_FILE}" ]]; then
   [[ -f "${CONFIG_FILE}" ]] || {
@@ -24,12 +28,12 @@ SERVICE_NAMESPACE="${SERVICE_NAMESPACE:-application}"
 OTEL_SERVICES="${OTEL_SERVICES:-}"
 TRACE_SAMPLE_RATIO="${TRACE_SAMPLE_RATIO:-0.10}"
 OTEL_IGNORED_PATHS="${OTEL_IGNORED_PATHS:-/health,/ready,/live,/metrics}"
-COLLECTOR_IMAGE="${COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.153.0}"
+COLLECTOR_IMAGE="${COLLECTOR_IMAGE:-${DEFAULT_COLLECTOR_IMAGE}}"
 APP_NETWORK="${APP_NETWORK:-}"
 ENABLE_DOCKER_LOGS="${ENABLE_DOCKER_LOGS:-false}"
-DOCKER_LOG_MAX_SIZE="${DOCKER_LOG_MAX_SIZE:-20m}"
-DOCKER_LOG_MAX_FILES="${DOCKER_LOG_MAX_FILES:-3}"
-DOCKER_SOCKET_PROXY_IMAGE="${DOCKER_SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy:v0.4.2}"
+DOCKER_LOG_MAX_SIZE="${DOCKER_LOG_MAX_SIZE:-${DEFAULT_DOCKER_LOG_MAX_SIZE}}"
+DOCKER_LOG_MAX_FILES="${DOCKER_LOG_MAX_FILES:-${DEFAULT_DOCKER_LOG_MAX_FILES}}"
+DOCKER_SOCKET_PROXY_IMAGE="${DOCKER_SOCKET_PROXY_IMAGE:-${DEFAULT_DOCKER_SOCKET_PROXY_IMAGE}}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -128,6 +132,70 @@ list_services() {
     --project-directory "${APP_DIR}" \
     -f "${APP_DIR}/${APP_COMPOSE_FILE}" \
     config --services
+}
+
+enable_logs() {
+  require_root
+  [[ -n "${CONFIG_FILE}" ]] || die "enable-logs requires a server.env path"
+
+  backup_file="${CONFIG_FILE}.backup.$(date +%Y%m%d%H%M%S).$$"
+  temp_file="$(mktemp "${CONFIG_FILE}.tmp.XXXXXX")"
+  cp -a "${CONFIG_FILE}" "${backup_file}"
+
+  if ! awk \
+    -v enable='"true"' \
+    -v max_size="\"${DEFAULT_DOCKER_LOG_MAX_SIZE}\"" \
+    -v max_files="\"${DEFAULT_DOCKER_LOG_MAX_FILES}\"" \
+    -v proxy_image="\"${DEFAULT_DOCKER_SOCKET_PROXY_IMAGE}\"" \
+    -v collector_image="\"${DEFAULT_COLLECTOR_IMAGE}\"" '
+      BEGIN {
+        values["ENABLE_DOCKER_LOGS"] = enable
+        values["DOCKER_LOG_MAX_SIZE"] = max_size
+        values["DOCKER_LOG_MAX_FILES"] = max_files
+        values["DOCKER_SOCKET_PROXY_IMAGE"] = proxy_image
+        values["COLLECTOR_IMAGE"] = collector_image
+        order[1] = "ENABLE_DOCKER_LOGS"
+        order[2] = "DOCKER_LOG_MAX_SIZE"
+        order[3] = "DOCKER_LOG_MAX_FILES"
+        order[4] = "DOCKER_SOCKET_PROXY_IMAGE"
+        order[5] = "COLLECTOR_IMAGE"
+      }
+      {
+        replaced = 0
+        for (key in values) {
+          if ($0 ~ "^" key "=") {
+            if (!(key in seen)) {
+              print key "=" values[key]
+            }
+            seen[key] = 1
+            replaced = 1
+            break
+          }
+        }
+        if (!replaced) {
+          print
+        }
+      }
+      END {
+        for (position = 1; position <= 5; position++) {
+          key = order[position]
+          if (!(key in seen)) {
+            print key "=" values[key]
+          }
+        }
+      }
+    ' "${CONFIG_FILE}" > "${temp_file}"; then
+    rm -f "${temp_file}"
+    die "Unable to update ${CONFIG_FILE}"
+  fi
+
+  chown --reference="${CONFIG_FILE}" "${temp_file}"
+  chmod --reference="${CONFIG_FILE}" "${temp_file}"
+  mv "${temp_file}" "${CONFIG_FILE}"
+
+  echo "Enabled Docker logs in ${CONFIG_FILE}"
+  echo "Backup: ${backup_file}"
+  exec "$0" preflight "${CONFIG_FILE}"
 }
 
 install() {
@@ -257,6 +325,9 @@ rollback() {
 }
 
 case "${ACTION}" in
+  enable-logs)
+    enable_logs
+    ;;
   list-services)
     list_services
     ;;
@@ -274,6 +345,6 @@ case "${ACTION}" in
     rollback
     ;;
   *)
-    die "Usage: $0 [list-services|preflight|install|verify|rollback] [server.env]"
+    die "Usage: $0 [enable-logs|list-services|preflight|install|verify|rollback] [server.env]"
     ;;
 esac
