@@ -116,6 +116,13 @@ install() {
 
   INSTALL_ROOT="${INSTALL_ROOT}" "${SCRIPT_DIR}/install-node-auto.sh"
 
+  bundle_version="$(
+    sha256sum \
+      "${INSTALL_ROOT}/node-auto/otel-bootstrap.js" \
+      "${INSTALL_ROOT}/node-auto/package-lock.json" | \
+      sha256sum | cut -d' ' -f1
+  )"
+
   "${SCRIPT_DIR}/render-compose-override.sh" \
     --output "${OVERRIDE_FILE}" \
     --node-auto-dir "${INSTALL_ROOT}/node-auto" \
@@ -127,6 +134,7 @@ install() {
     --namespace "${SERVICE_NAMESPACE}" \
     --sample-ratio "${TRACE_SAMPLE_RATIO}" \
     --ignored-paths "${OTEL_IGNORED_PATHS}" \
+    --bundle-version "${bundle_version}" \
     "${service_args[@]}"
 
   compose config --quiet
