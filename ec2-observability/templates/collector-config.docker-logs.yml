@@ -34,6 +34,7 @@ receivers:
         config:
           include:
             - /var/lib/docker/containers/`container_id`/`container_id`-json.log
+          include_file_path: true
           start_at: end
           storage: file_storage
           operators:
