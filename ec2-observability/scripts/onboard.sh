@@ -23,6 +23,7 @@ DEPLOYMENT_ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-development}"
 SERVICE_NAMESPACE="${SERVICE_NAMESPACE:-application}"
 OTEL_SERVICES="${OTEL_SERVICES:-}"
 TRACE_SAMPLE_RATIO="${TRACE_SAMPLE_RATIO:-0.10}"
+OTEL_IGNORED_PATHS="${OTEL_IGNORED_PATHS:-/health,/ready,/live,/metrics}"
 COLLECTOR_IMAGE="${COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.128.0}"
 APP_NETWORK="${APP_NETWORK:-}"
 
@@ -125,6 +126,7 @@ install() {
     --environment "${DEPLOYMENT_ENVIRONMENT}" \
     --namespace "${SERVICE_NAMESPACE}" \
     --sample-ratio "${TRACE_SAMPLE_RATIO}" \
+    --ignored-paths "${OTEL_IGNORED_PATHS}" \
     "${service_args[@]}"
 
   compose config --quiet

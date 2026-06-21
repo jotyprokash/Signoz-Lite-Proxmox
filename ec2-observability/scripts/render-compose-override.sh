@@ -10,6 +10,7 @@ COLLECTOR_CONFIG="/opt/signoz-ec2-observability/collector/config.yml"
 COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.128.0"
 APP_NETWORK="application-network"
 SAMPLE_RATIO="0.10"
+IGNORED_PATHS="/health,/ready,/live,/metrics"
 SERVICES=()
 
 usage() {
@@ -27,6 +28,7 @@ Options:
   --collector-image IMAGE      Pinned EC2 collector image.
   --app-network NAME           Existing application Compose network.
   --sample-ratio RATIO         Head-sampling ratio from 0 through 1.
+  --ignored-paths PATHS        Comma-separated incoming HTTP paths to exclude.
   --service NAME=SERVICE_NAME   Compose service and OTel service name. Repeatable.
 
 Example:
@@ -74,6 +76,10 @@ while [[ $# -gt 0 ]]; do
       APP_NETWORK="$2"
       shift 2
       ;;
+    --ignored-paths)
+      IGNORED_PATHS="$2"
+      shift 2
+      ;;
     --service)
       SERVICES+=("$2")
       shift 2
@@ -109,6 +115,11 @@ fi
 
 if ! [[ "${SAMPLE_RATIO}" =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]]; then
   echo "Invalid --sample-ratio '${SAMPLE_RATIO}'. Expected a value from 0 through 1." >&2
+  exit 1
+fi
+
+if ! [[ "${IGNORED_PATHS}" =~ ^/[a-zA-Z0-9_./-]+(,/[a-zA-Z0-9_./-]+)*$ ]]; then
+  echo "Invalid --ignored-paths '${IGNORED_PATHS}'. Expected comma-separated absolute paths." >&2
   exit 1
 fi
 
@@ -163,7 +174,7 @@ EOF
       OTEL_DEPLOYMENT_ENVIRONMENT: ${ENVIRONMENT}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${COLLECTOR_ENDPOINT}
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_NODE_IGNORED_PATHS: /health,/ready,/live,/metrics
+      OTEL_NODE_IGNORED_PATHS: ${IGNORED_PATHS}
       OTEL_TRACES_SAMPLER: parentbased_traceidratio
       OTEL_TRACES_SAMPLER_ARG: "${SAMPLE_RATIO}"
       OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=${ENVIRONMENT},deployment.environment=${ENVIRONMENT},service.namespace=${NAMESPACE},service.type=api,host.type=ec2,cloud.provider=aws
