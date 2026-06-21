@@ -11,6 +11,7 @@ COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.128.0"
 APP_NETWORK="application-network"
 SAMPLE_RATIO="0.10"
 IGNORED_PATHS="/health,/ready,/live,/metrics"
+BUNDLE_VERSION="unversioned"
 SERVICES=()
 
 usage() {
@@ -29,6 +30,7 @@ Options:
   --app-network NAME           Existing application Compose network.
   --sample-ratio RATIO         Head-sampling ratio from 0 through 1.
   --ignored-paths PATHS        Comma-separated incoming HTTP paths to exclude.
+  --bundle-version HASH        Instrumentation content hash used for recreation.
   --service NAME=SERVICE_NAME   Compose service and OTel service name. Repeatable.
 
 Example:
@@ -80,6 +82,10 @@ while [[ $# -gt 0 ]]; do
       IGNORED_PATHS="$2"
       shift 2
       ;;
+    --bundle-version)
+      BUNDLE_VERSION="$2"
+      shift 2
+      ;;
     --service)
       SERVICES+=("$2")
       shift 2
@@ -120,6 +126,11 @@ fi
 
 if ! [[ "${IGNORED_PATHS}" =~ ^/[a-zA-Z0-9_./-]+(,/[a-zA-Z0-9_./-]+)*$ ]]; then
   echo "Invalid --ignored-paths '${IGNORED_PATHS}'. Expected comma-separated absolute paths." >&2
+  exit 1
+fi
+
+if ! [[ "${BUNDLE_VERSION}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Invalid --bundle-version '${BUNDLE_VERSION}'." >&2
   exit 1
 fi
 
@@ -169,6 +180,7 @@ EOF
   ${compose_service}:
     environment:
       NODE_OPTIONS: --require /otel-node/otel-bootstrap.js
+      OTEL_BUNDLE_VERSION: ${BUNDLE_VERSION}
       OTEL_SERVICE_NAME: ${otel_service}
       OTEL_SERVICE_NAMESPACE: ${NAMESPACE}
       OTEL_DEPLOYMENT_ENVIRONMENT: ${ENVIRONMENT}

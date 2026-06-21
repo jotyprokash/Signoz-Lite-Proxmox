@@ -33,6 +33,7 @@ const sdk = new NodeSDK({
     '@opentelemetry/instrumentation-dns': { enabled: false },
     '@opentelemetry/instrumentation-fs': { enabled: false },
     '@opentelemetry/instrumentation-express': { enabled: false },
+    '@opentelemetry/instrumentation-koa': { enabled: false },
     '@opentelemetry/instrumentation-http': {
       ignoreIncomingRequestHook: (request) => {
         const requestPath = (request.url || '').split('?', 1)[0];
