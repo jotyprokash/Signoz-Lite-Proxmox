@@ -15,16 +15,16 @@ if [[ -n "${CONFIG_FILE}" ]]; then
   set +a
 fi
 
-APP_DIR="${APP_DIR:-/var/www/saafir/api.b2b.dev-saafir.jatritech.com}"
+APP_DIR="${APP_DIR:-}"
 APP_COMPOSE_FILE="${APP_COMPOSE_FILE:-docker-compose.yml}"
-INSTALL_ROOT="${INSTALL_ROOT:-/opt/saafir-observability}"
-SIGNOZ_OTLP_ENDPOINT="${SIGNOZ_OTLP_ENDPOINT:-100.88.205.91:4317}"
+INSTALL_ROOT="${INSTALL_ROOT:-/opt/signoz-ec2-observability}"
+SIGNOZ_OTLP_ENDPOINT="${SIGNOZ_OTLP_ENDPOINT:-}"
 DEPLOYMENT_ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-development}"
-SERVICE_NAMESPACE="${SERVICE_NAMESPACE:-saafir}"
-OTEL_SERVICES="${OTEL_SERVICES:-api=saafir-dev-api}"
+SERVICE_NAMESPACE="${SERVICE_NAMESPACE:-application}"
+OTEL_SERVICES="${OTEL_SERVICES:-}"
 TRACE_SAMPLE_RATIO="${TRACE_SAMPLE_RATIO:-0.10}"
 COLLECTOR_IMAGE="${COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.128.0}"
-APP_NETWORK="${APP_NETWORK:-saafir-network}"
+APP_NETWORK="${APP_NETWORK:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -47,6 +47,11 @@ compose() {
     -f "${OVERRIDE_FILE}" \
     "$@"
 }
+
+[[ -n "${APP_DIR}" ]] || die "APP_DIR is required"
+[[ -n "${APP_NETWORK}" ]] || die "APP_NETWORK is required"
+[[ -n "${OTEL_SERVICES}" ]] || die "OTEL_SERVICES is required"
+[[ -n "${SIGNOZ_OTLP_ENDPOINT}" ]] || die "SIGNOZ_OTLP_ENDPOINT is required"
 
 service_args=()
 IFS=',' read -r -a configured_services <<< "${OTEL_SERVICES}"
@@ -179,6 +184,10 @@ rollback() {
 }
 
 case "${ACTION}" in
+  preflight)
+    preflight
+    echo "Observability preflight passed. No changes were made."
+    ;;
   install|apply)
     install
     ;;
@@ -189,6 +198,6 @@ case "${ACTION}" in
     rollback
     ;;
   *)
-    die "Usage: $0 [install|verify|rollback] [server.env]"
+    die "Usage: $0 [preflight|install|verify|rollback] [server.env]"
     ;;
 esac

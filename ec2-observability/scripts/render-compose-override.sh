@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OUTPUT="/opt/saafir-observability/docker-compose.otel.yml"
-NODE_AUTO_DIR="/opt/saafir-observability/node-auto"
+OUTPUT="/opt/signoz-ec2-observability/docker-compose.otel.yml"
+NODE_AUTO_DIR="/opt/signoz-ec2-observability/node-auto"
 COLLECTOR_ENDPOINT="http://otel-collector:4317"
 ENVIRONMENT="development"
-NAMESPACE="saafir"
-COLLECTOR_CONFIG="/opt/saafir-observability/collector/config.yml"
+NAMESPACE="application"
+COLLECTOR_CONFIG="/opt/signoz-ec2-observability/collector/config.yml"
 COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.128.0"
-APP_NETWORK="saafir-network"
+APP_NETWORK="application-network"
 SAMPLE_RATIO="0.10"
 SERVICES=()
 
@@ -31,8 +31,8 @@ Options:
 
 Example:
   sudo ./scripts/render-compose-override.sh \
-    --service api=saafir-dev-api \
-    --service auth=saafir-dev-auth
+    --service web=example-web \
+    --service worker=example-worker
 EOF
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALL_ROOT="${INSTALL_ROOT:-/opt/saafir-observability}"
+INSTALL_ROOT="${INSTALL_ROOT:-/opt/signoz-ec2-observability}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_DIR="${TOOLKIT_DIR}/node-auto"
