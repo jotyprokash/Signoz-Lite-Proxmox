@@ -837,7 +837,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.bucket",
+                  "metricName": "signoz_latency_bucket",
                   "temporality": null,
                   "timeAggregation": "",
                   "spaceAggregation": "p99",
@@ -864,7 +864,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.bucket",
+                  "metricName": "signoz_latency_bucket",
                   "temporality": null,
                   "timeAggregation": "",
                   "spaceAggregation": "p90",
@@ -891,7 +891,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.bucket",
+                  "metricName": "signoz_latency_bucket",
                   "temporality": null,
                   "timeAggregation": "",
                   "spaceAggregation": "p50",
@@ -1017,7 +1017,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.count",
+                  "metricName": "signoz_calls_total",
                   "temporality": null,
                   "timeAggregation": "rate",
                   "spaceAggregation": "sum",
@@ -1326,7 +1326,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.bucket",
+                  "metricName": "signoz_latency_bucket",
                   "temporality": null,
                   "timeAggregation": "",
                   "spaceAggregation": "p99",
@@ -1362,7 +1362,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.bucket",
+                  "metricName": "signoz_latency_bucket",
                   "temporality": null,
                   "timeAggregation": "",
                   "spaceAggregation": "p90",
@@ -1398,7 +1398,7 @@
               "stepInterval": 60,
               "aggregations": [
                 {
-                  "metricName": "signoz_latency.bucket",
+                  "metricName": "signoz_latency_bucket",
                   "temporality": null,
                   "timeAggregation": "",
                   "spaceAggregation": "p50",
@@ -1639,7 +1639,7 @@
                 }
               ],
               "filter": {
-                "expression": "(serviceName = $service.name AND httpMethod EXISTS AND spanKind = 'Server') httpRoute EXISTS AND httpMethod EXISTS"
+                "expression": "(serviceName = $service.name AND httpMethod EXISTS AND spanKind = 'Server') AND httpRoute EXISTS"
               }
             },
             {
@@ -1678,7 +1678,7 @@
                 }
               ],
               "filter": {
-                "expression": "(serviceName = $service.name AND httpMethod EXISTS AND spanKind = 'Server') httpRoute EXISTS AND httpMethod EXISTS"
+                "expression": "(serviceName = $service.name AND httpMethod EXISTS AND spanKind = 'Server') AND httpRoute EXISTS"
               }
             }
           ],
@@ -1819,7 +1819,7 @@
                 }
               ],
               "filter": {
-                "expression": "(spanKind = 'Server' AND httpMethod EXISTS AND serviceName = $service.name) httpRoute EXISTS AND httpMethod EXISTS"
+                "expression": "(spanKind = 'Server' AND httpMethod EXISTS AND serviceName = $service.name) AND httpRoute EXISTS"
               }
             }
           ],
