@@ -7,6 +7,7 @@ COLLECTOR_ENDPOINT="http://otel-collector:4317"
 ENVIRONMENT="development"
 NAMESPACE="application"
 COLLECTOR_CONFIG="/opt/signoz-ec2-observability/collector/config.yml"
+COLLECTOR_CONFIG_VERSION="unversioned"
 COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.153.0"
 APP_NETWORK="application-network"
 SAMPLE_RATIO="0.10"
@@ -30,6 +31,7 @@ Options:
   --environment NAME            deployment.environment value.
   --namespace NAME              service.namespace value.
   --collector-config PATH       Host path to the EC2 collector configuration.
+  --collector-config-version    Collector config hash used for recreation.
   --collector-image IMAGE      Pinned EC2 collector image.
   --app-network NAME           Existing application Compose network.
   --sample-ratio RATIO         Head-sampling ratio from 0 through 1.
@@ -72,6 +74,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --collector-config)
       COLLECTOR_CONFIG="$2"
+      shift 2
+      ;;
+    --collector-config-version)
+      COLLECTOR_CONFIG_VERSION="$2"
       shift 2
       ;;
     --collector-image)
@@ -158,6 +164,11 @@ if ! [[ "${BUNDLE_VERSION}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
   exit 1
 fi
 
+if ! [[ "${COLLECTOR_CONFIG_VERSION}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Invalid --collector-config-version '${COLLECTOR_CONFIG_VERSION}'." >&2
+  exit 1
+fi
+
 if [[ "${ENABLE_DOCKER_LOGS}" != "true" && "${ENABLE_DOCKER_LOGS}" != "false" ]]; then
   echo "Invalid --enable-docker-logs '${ENABLE_DOCKER_LOGS}'. Expected true or false." >&2
   exit 1
@@ -198,6 +209,8 @@ fi
     container_name: \${COMPOSE_PROJECT_NAME}-otel-collector
     command: ["--config=/etc/otelcol-contrib/config.yml"]
     restart: unless-stopped
+    environment:
+      OTEL_COLLECTOR_CONFIG_VERSION: ${COLLECTOR_CONFIG_VERSION}
     ports:
       - "127.0.0.1:4317:4317"
       - "127.0.0.1:4318:4318"

@@ -209,6 +209,7 @@ install() {
   fi
   sed "s|__SIGNOZ_OTLP_ENDPOINT__|${SIGNOZ_OTLP_ENDPOINT}|g" \
     "${collector_template}" > "${COLLECTOR_CONFIG}"
+  collector_config_version="$(sha256sum "${COLLECTOR_CONFIG}" | cut -d' ' -f1)"
 
   INSTALL_ROOT="${INSTALL_ROOT}" "${SCRIPT_DIR}/install-node-auto.sh"
 
@@ -224,6 +225,7 @@ install() {
     --node-auto-dir "${INSTALL_ROOT}/node-auto" \
     --collector-endpoint http://otel-collector:4317 \
     --collector-config "${COLLECTOR_CONFIG}" \
+    --collector-config-version "${collector_config_version}" \
     --collector-image "${COLLECTOR_IMAGE}" \
     --app-network "${APP_NETWORK}" \
     --environment "${DEPLOYMENT_ENVIRONMENT}" \
