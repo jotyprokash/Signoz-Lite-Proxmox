@@ -1,121 +1,89 @@
-# EC2 Observability Toolkit
+# EC2 Observability
 
-This toolkit onboards API containers to the on-prem SigNoz collector without changing the application source code or application package files.
+## Requirements
 
-It is designed for this flow:
+- Docker and Docker Compose
+- Application containers already running
+- Private/Tailscale access to SigNoz OTLP port `4317`
 
-```text
-Node API container
--> local EC2 OpenTelemetry Collector
--> Tailscale
--> Proxmox SigNoz Collector
--> SigNoz
-```
-
-The EC2 collector must already be running and forwarding to the Proxmox collector. In the current Saafir EC2 setup, the local collector is reachable from app containers as:
-
-```text
-otel-collector:4317
-```
-
-## What This Does
-
-- Installs OpenTelemetry Node packages outside the app repo under `/opt/saafir-observability/node-auto`.
-- Mounts that external bundle into selected API containers as `/otel-node`.
-- Uses `NODE_OPTIONS=--require /otel-node/otel-bootstrap.js` to auto-load tracing at process startup.
-- Sends traces to the existing EC2 collector.
-
-## What This Does Not Do
-
-- It does not edit application source code.
-- It does not edit the application `package.json`.
-- It does not rebuild application images.
-- It does not collect host CPU/RAM/disk metrics.
-- It does not collect system logs.
-
-## Install On EC2
-
-Clone or pull this repo on the EC2 instance, then run:
+## One-Time Setup
 
 ```bash
-cd /opt/Signoz-Lite-Proxmox/ec2-observability
-sudo ./scripts/install-node-auto.sh
+cd /opt/Signoz-Lite-Proxmox
+git pull --ff-only
+
+sudo install -m 600 \
+  ec2-observability/server.env.example \
+  /etc/signoz-ec2-observability.env
+
+sudoedit /etc/signoz-ec2-observability.env
 ```
 
-If the repo is cloned somewhere else, run the script from that location.
+Replace the example values:
 
-## Generate An Override
+```env
+APP_DIR="/absolute/path/to/application"
+APP_COMPOSE_FILE="docker-compose.yml"
+APP_NETWORK="compose-network-name"
 
-For the Saafir dev API:
+OTEL_SERVICES="compose-service=signoz-service-name"
+SERVICE_NAMESPACE="application-namespace"
+DEPLOYMENT_ENVIRONMENT="development"
 
-```bash
-sudo ./scripts/render-compose-override.sh \
-  --output /opt/saafir-observability/docker-compose.otel.yml \
-  --collector-endpoint http://otel-collector:4317 \
-  --environment development \
-  --namespace saafir \
-  --service api=saafir-dev-api
+SIGNOZ_OTLP_ENDPOINT="private-signoz-ip:4317"
+TRACE_SAMPLE_RATIO="0.10"
+
+INSTALL_ROOT="/opt/signoz-ec2-observability"
+COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.128.0"
 ```
 
-Add more services when ready:
+Do not add application secrets.
+
+## Install
 
 ```bash
-sudo ./scripts/render-compose-override.sh \
-  --output /opt/saafir-observability/docker-compose.otel.yml \
-  --collector-endpoint http://otel-collector:4317 \
-  --environment development \
-  --namespace saafir \
-  --service api=saafir-dev-api \
-  --service auth=saafir-dev-auth \
-  --service chauffeur-api=saafir-dev-chauffeur-api \
-  --service agency-tp-api=saafir-dev-agency-tp-api \
-  --service stay=saafir-dev-stay
+cd /opt/Signoz-Lite-Proxmox
+
+sudo ./ec2-observability/scripts/onboard.sh preflight \
+  /etc/signoz-ec2-observability.env
+
+sudo ./ec2-observability/scripts/onboard.sh install \
+  /etc/signoz-ec2-observability.env
 ```
 
-## Apply To One Service
-
-From the app repo on EC2:
+## Update
 
 ```bash
-cd /var/www/saafir/api.b2b.dev-saafir.jatritech.com
+cd /opt/Signoz-Lite-Proxmox
+git pull --ff-only
 
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.local.yml \
-  -f /opt/saafir-observability/docker-compose.otel.yml \
-  up -d api
+sudo ./ec2-observability/scripts/onboard.sh install \
+  /etc/signoz-ec2-observability.env
 ```
 
 ## Verify
 
 ```bash
-/opt/saafir-observability/verify.sh api
+sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh verify \
+  /etc/signoz-ec2-observability.env
 ```
 
-Or manually:
+## Add Services
+
+```env
+OTEL_SERVICES="web=example-web,worker=example-worker"
+```
 
 ```bash
-docker exec saafir-b2b-admin-panel-dev-api printenv | grep -E 'OTEL|NODE_OPTIONS'
-docker logs --since 5m saafir-b2b-admin-panel-dev-otel-collector
-curl -i http://localhost:4000/health
+sudoedit /etc/signoz-ec2-observability.env
+
+sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh install \
+  /etc/signoz-ec2-observability.env
 ```
 
-Then check SigNoz for:
-
-```text
-service.name = saafir-dev-api
-```
-
-## Rollback
-
-Recreate the service without the observability override:
+## Roll Back
 
 ```bash
-cd /var/www/saafir/api.b2b.dev-saafir.jatritech.com
-
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.local.yml \
-  up -d api
+sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh rollback \
+  /etc/signoz-ec2-observability.env
 ```
-

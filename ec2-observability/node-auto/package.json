@@ -1,15 +1,13 @@
 {
-  "name": "saafir-node-auto-observability",
+  "name": "signoz-node-auto-observability",
   "version": "1.0.0",
   "private": true,
-  "description": "External OpenTelemetry Node auto-instrumentation bundle for Saafir EC2 services.",
+  "description": "External OpenTelemetry Node auto-instrumentation bundle for Docker services.",
   "license": "UNLICENSED",
   "dependencies": {
-    "@opentelemetry/auto-instrumentations-node": "^0.62.1",
-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.203.0",
-    "@opentelemetry/resources": "^2.0.1",
-    "@opentelemetry/sdk-node": "^0.203.0",
-    "@opentelemetry/semantic-conventions": "^1.36.0"
+    "@opentelemetry/auto-instrumentations-node": "0.77.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "0.219.0",
+    "@opentelemetry/resources": "2.8.0",
+    "@opentelemetry/sdk-node": "0.219.0"
   }
 }
-

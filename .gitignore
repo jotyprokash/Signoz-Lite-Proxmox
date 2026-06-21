@@ -1,5 +1,6 @@
 # Secrets
 .env
+ec2-observability/server.env
 
 # Data directories
 data/
