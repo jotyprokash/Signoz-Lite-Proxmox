@@ -8,6 +8,15 @@
 
 ## One-Time Setup
 
+Only `/etc/signoz-ec2-observability.env` is active. The repository file is a public template used once when preparing a new server:
+
+| File | Purpose |
+| :--- | :--- |
+| `ec2-observability/server.env.example` | Generic template tracked in Git; never contains real server values |
+| `/etc/signoz-ec2-observability.env` | Private active configuration created separately on each EC2 host |
+
+The application's own `.env` files are unrelated and are not modified by this toolkit.
+
 ```bash
 cd /opt/Signoz-Lite-Proxmox
 git pull --ff-only
