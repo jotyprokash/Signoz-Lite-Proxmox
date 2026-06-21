@@ -52,6 +52,18 @@ processors:
       - context: log
         statements:
           - replace_pattern(log.body, "\\x1b\\[[0-9;]*[mK]", "") where IsString(log.body)
+          - set(log.severity_text, "TRACE") where IsMatch(log.body, "^\\[Nest\\].* VERBOSE \\[")
+          - set(log.severity_number, SEVERITY_NUMBER_TRACE) where log.severity_text == "TRACE"
+          - set(log.severity_text, "DEBUG") where IsMatch(log.body, "^\\[Nest\\].* DEBUG \\[")
+          - set(log.severity_number, SEVERITY_NUMBER_DEBUG) where log.severity_text == "DEBUG"
+          - set(log.severity_text, "INFO") where IsMatch(log.body, "^\\[Nest\\].* LOG \\[")
+          - set(log.severity_number, SEVERITY_NUMBER_INFO) where log.severity_text == "INFO"
+          - set(log.severity_text, "WARN") where IsMatch(log.body, "^\\[Nest\\].* WARN \\[")
+          - set(log.severity_number, SEVERITY_NUMBER_WARN) where log.severity_text == "WARN"
+          - set(log.severity_text, "ERROR") where IsMatch(log.body, "^\\[Nest\\].* ERROR \\[")
+          - set(log.severity_number, SEVERITY_NUMBER_ERROR) where log.severity_text == "ERROR"
+          - set(log.severity_text, "FATAL") where IsMatch(log.body, "^\\[Nest\\].* FATAL \\[")
+          - set(log.severity_number, SEVERITY_NUMBER_FATAL) where log.severity_text == "FATAL"
   batch:
     send_batch_size: 512
     send_batch_max_size: 1024
