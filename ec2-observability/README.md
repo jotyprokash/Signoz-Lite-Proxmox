@@ -43,11 +43,22 @@ SIGNOZ_OTLP_ENDPOINT="private-signoz-ip:4317"
 TRACE_SAMPLE_RATIO="0.10"
 OTEL_IGNORED_PATHS="/health,/ready,/live,/metrics"
 
+ENABLE_DOCKER_LOGS="true"
+DOCKER_LOG_MAX_SIZE="20m"
+DOCKER_LOG_MAX_FILES="3"
+DOCKER_SOCKET_PROXY_IMAGE="ghcr.io/tecnativa/docker-socket-proxy:v0.4.2"
+
 INSTALL_ROOT="/opt/signoz-ec2-observability"
-COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.128.0"
+COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.153.0"
 ```
 
 Do not add application secrets.
+
+`ENABLE_DOCKER_LOGS="true"` collects Docker stdout/stderr only from services in
+`OTEL_SERVICES`, starting at the end of each log file. The generated override
+rotates enrolled service logs at `20m` and keeps three files. The collector
+uses a private, read-only Docker API proxy; it does not use or publish host
+port `2375`.
 
 ## Install
 
@@ -77,6 +88,16 @@ sudo ./ec2-observability/scripts/onboard.sh install \
 sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh verify \
   /etc/signoz-ec2-observability.env
 ```
+
+In SigNoz Logs Explorer, filter with the same service name used for traces:
+
+```text
+service.name = "signoz-service-name"
+```
+
+Docker console logs do not contain trace IDs automatically. Trace-to-log
+correlation requires structured application logging that includes the active
+trace and span IDs.
 
 ## Add Services
 

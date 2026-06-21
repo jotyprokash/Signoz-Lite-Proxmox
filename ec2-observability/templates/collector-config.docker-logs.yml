@@ -1,0 +1,88 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  file_storage:
+    directory: /var/lib/otelcol
+    create_directory: true
+  docker_observer:
+    endpoint: tcp://otel-docker-socket-proxy:2375
+    include_all_containers: true
+    excluded_images:
+      - otel/opentelemetry-collector-contrib*
+      - ghcr.io/tecnativa/docker-socket-proxy*
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  receiver_creator/docker_logs:
+    watch_observers: [docker_observer]
+    receivers:
+      filelog/container:
+        rule: type == "container" and port == 0 and labels["io.opentelemetry.logs.enabled"] == "true"
+        resource_attributes:
+          container.id: '`container_id`'
+          container.name: '`name`'
+          container.image.name: '`image`'
+          service.name: '`labels["io.opentelemetry.service.name"]`'
+          service.namespace: '`labels["io.opentelemetry.service.namespace"]`'
+          deployment.environment.name: '`labels["io.opentelemetry.deployment.environment"]`'
+          deployment.environment: '`labels["io.opentelemetry.deployment.environment"]`'
+        config:
+          include:
+            - /var/lib/docker/containers/`container_id`/`container_id`-json.log
+          start_at: end
+          storage: file_storage
+          operators:
+            - type: container
+              format: docker
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  transform/clean_logs:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - replace_pattern(log.body, "\\x1b\\[[0-9;]*[mK]", "") where IsString(log.body)
+  batch:
+    send_batch_size: 512
+    send_batch_max_size: 1024
+    timeout: 5s
+
+exporters:
+  otlp:
+    endpoint: __SIGNOZ_OTLP_ENDPOINT__
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 2048
+      storage: file_storage
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  extensions: [health_check, file_storage, docker_observer]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp]
+    logs:
+      receivers: [otlp, receiver_creator/docker_logs]
+      processors: [memory_limiter, transform/clean_logs, batch]
+      exporters: [otlp]

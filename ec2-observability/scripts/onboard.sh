@@ -24,8 +24,12 @@ SERVICE_NAMESPACE="${SERVICE_NAMESPACE:-application}"
 OTEL_SERVICES="${OTEL_SERVICES:-}"
 TRACE_SAMPLE_RATIO="${TRACE_SAMPLE_RATIO:-0.10}"
 OTEL_IGNORED_PATHS="${OTEL_IGNORED_PATHS:-/health,/ready,/live,/metrics}"
-COLLECTOR_IMAGE="${COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.128.0}"
+COLLECTOR_IMAGE="${COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.153.0}"
 APP_NETWORK="${APP_NETWORK:-}"
+ENABLE_DOCKER_LOGS="${ENABLE_DOCKER_LOGS:-false}"
+DOCKER_LOG_MAX_SIZE="${DOCKER_LOG_MAX_SIZE:-20m}"
+DOCKER_LOG_MAX_FILES="${DOCKER_LOG_MAX_FILES:-3}"
+DOCKER_SOCKET_PROXY_IMAGE="${DOCKER_SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy:v0.4.2}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -72,6 +76,26 @@ preflight() {
   [[ -f "${APP_DIR}/${APP_COMPOSE_FILE}" ]] || die "Missing ${APP_DIR}/${APP_COMPOSE_FILE}"
   [[ "${SIGNOZ_OTLP_ENDPOINT}" =~ ^[a-zA-Z0-9._-]+:[0-9]+$ ]] || \
     die "SIGNOZ_OTLP_ENDPOINT must use host:port format"
+  [[ "${ENABLE_DOCKER_LOGS}" == "true" || "${ENABLE_DOCKER_LOGS}" == "false" ]] || \
+    die "ENABLE_DOCKER_LOGS must be true or false"
+  [[ "${DOCKER_LOG_MAX_SIZE}" =~ ^[1-9][0-9]*[kKmMgG]$ ]] || \
+    die "DOCKER_LOG_MAX_SIZE must look like 20m"
+  [[ "${DOCKER_LOG_MAX_FILES}" =~ ^[1-9][0-9]*$ ]] || \
+    die "DOCKER_LOG_MAX_FILES must be a positive integer"
+  [[ "${COLLECTOR_IMAGE}" =~ ^[a-zA-Z0-9._/@:-]+$ ]] || \
+    die "COLLECTOR_IMAGE contains unsupported characters"
+  [[ "${DOCKER_SOCKET_PROXY_IMAGE}" =~ ^[a-zA-Z0-9._/@:-]+$ ]] || \
+    die "DOCKER_SOCKET_PROXY_IMAGE contains unsupported characters"
+  if [[ "${ENABLE_DOCKER_LOGS}" == "true" ]]; then
+    collector_tag="${COLLECTOR_IMAGE##*:}"
+    if [[ "${collector_tag}" =~ ^0\.([0-9]+)\.[0-9]+$ ]] && \
+       (( BASH_REMATCH[1] < 152 )); then
+      die "Docker logs require OpenTelemetry Collector 0.152.0 or newer"
+    fi
+    [[ -S /var/run/docker.sock ]] || die "Docker socket is unavailable"
+    [[ -d /var/lib/docker/containers ]] || \
+      die "Docker json-file log directory is unavailable"
+  fi
 
   if command -v tailscale >/dev/null 2>&1; then
     tailscale status >/dev/null 2>&1 || die "Tailscale is not connected"
@@ -110,9 +134,13 @@ install() {
   require_root
   preflight
 
-  mkdir -p "${INSTALL_ROOT}/collector"
+  mkdir -p "${INSTALL_ROOT}/collector/state"
+  collector_template="${TOOLKIT_DIR}/templates/collector-config.yml"
+  if [[ "${ENABLE_DOCKER_LOGS}" == "true" ]]; then
+    collector_template="${TOOLKIT_DIR}/templates/collector-config.docker-logs.yml"
+  fi
   sed "s|__SIGNOZ_OTLP_ENDPOINT__|${SIGNOZ_OTLP_ENDPOINT}|g" \
-    "${TOOLKIT_DIR}/templates/collector-config.yml" > "${COLLECTOR_CONFIG}"
+    "${collector_template}" > "${COLLECTOR_CONFIG}"
 
   INSTALL_ROOT="${INSTALL_ROOT}" "${SCRIPT_DIR}/install-node-auto.sh"
 
@@ -135,10 +163,18 @@ install() {
     --sample-ratio "${TRACE_SAMPLE_RATIO}" \
     --ignored-paths "${OTEL_IGNORED_PATHS}" \
     --bundle-version "${bundle_version}" \
+    --enable-docker-logs "${ENABLE_DOCKER_LOGS}" \
+    --docker-log-max-size "${DOCKER_LOG_MAX_SIZE}" \
+    --docker-log-max-files "${DOCKER_LOG_MAX_FILES}" \
+    --docker-socket-proxy-image "${DOCKER_SOCKET_PROXY_IMAGE}" \
     "${service_args[@]}"
 
   compose config --quiet
-  compose up -d --no-build otel-collector "${compose_services[@]}"
+  observability_services=(otel-collector)
+  if [[ "${ENABLE_DOCKER_LOGS}" == "true" ]]; then
+    observability_services+=(otel-docker-socket-proxy)
+  fi
+  compose up -d --no-build "${observability_services[@]}" "${compose_services[@]}"
   verify
 }
 
@@ -176,6 +212,13 @@ verify() {
   [[ "$(docker inspect -f '{{.State.Running}}' "${collector}")" == "true" ]] || \
     die "Collector container is not running"
 
+  if [[ "${ENABLE_DOCKER_LOGS}" == "true" ]]; then
+    proxy="$(compose ps -q otel-docker-socket-proxy)"
+    [[ -n "${proxy}" ]] || die "Docker socket proxy is not running"
+    [[ "$(docker inspect -f '{{.State.Running}}' "${proxy}")" == "true" ]] || \
+      die "Docker socket proxy container is not running"
+  fi
+
   if command -v curl >/dev/null 2>&1; then
     healthy=0
     for _ in {1..15}; do
@@ -202,7 +245,15 @@ rollback() {
     --project-directory "${APP_DIR}" \
     -f "${APP_DIR}/${APP_COMPOSE_FILE}" \
     up -d --no-build "${base_services[@]}"
-  echo "Application services recreated without the observability override."
+
+  if [[ -f "${OVERRIDE_FILE}" ]]; then
+    removable_services=(otel-collector)
+    if compose config --services | grep -qx 'otel-docker-socket-proxy'; then
+      removable_services+=(otel-docker-socket-proxy)
+    fi
+    compose rm -sf "${removable_services[@]}"
+  fi
+  echo "Application services recreated and observability containers removed."
 }
 
 case "${ACTION}" in
