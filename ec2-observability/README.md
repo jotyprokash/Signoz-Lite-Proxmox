@@ -70,16 +70,30 @@ sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh verify \
 
 ## Add Services
 
+List Compose service names:
+
+```bash
+sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh list-services \
+  /etc/signoz-ec2-observability.env
+```
+
+Add one Node.js service while keeping all existing mappings:
+
 ```env
-OTEL_SERVICES="web=example-web,worker=example-worker"
+OTEL_SERVICES="existing-service=existing-name,new-service=new-name"
 ```
 
 ```bash
 sudoedit /etc/signoz-ec2-observability.env
 
+sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh preflight \
+  /etc/signoz-ec2-observability.env
+
 sudo /opt/Signoz-Lite-Proxmox/ec2-observability/scripts/onboard.sh install \
   /etc/signoz-ec2-observability.env
 ```
+
+Verify the new service in SigNoz, then repeat for the next service.
 
 ## Roll Back
 
