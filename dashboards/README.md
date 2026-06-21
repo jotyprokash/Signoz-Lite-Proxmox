@@ -9,6 +9,10 @@ names.
 In SigNoz, open **Dashboards**, select **New Dashboard**, choose **Import JSON**,
 and upload `ec2-api-overview.json`.
 
+RED and dependency panels query stored traces directly, so the dashboard does
+not require SigNoz span-metrics generation. Rates and percentages therefore
+represent sampled traffic when head sampling is enabled.
+
 ## Manage With Terraform
 
 Requirements:
@@ -47,7 +51,7 @@ Do not commit API keys, `.tfvars`, plans, or Terraform state. When Caddy basic
 authentication protects the public endpoint, run Terraform from a trusted path
 that can reach the SigNoz API and authenticate with the service-account key.
 
-The dashboard uses official SigNoz APM/HTTP query patterns and provides:
+The dashboard uses official SigNoz trace and HTTP query patterns and provides:
 
 - Log volume, severity, and warning/error count
 - Latency, request rate, error percentage, and top operations
