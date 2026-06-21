@@ -32,6 +32,7 @@ DEPLOYMENT_ENVIRONMENT="development"
 
 SIGNOZ_OTLP_ENDPOINT="private-signoz-ip:4317"
 TRACE_SAMPLE_RATIO="0.10"
+OTEL_IGNORED_PATHS="/health,/ready,/live,/metrics"
 
 INSTALL_ROOT="/opt/signoz-ec2-observability"
 COLLECTOR_IMAGE="otel/opentelemetry-collector-contrib:0.128.0"
