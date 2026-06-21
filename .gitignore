@@ -2,6 +2,14 @@
 .env
 ec2-observability/server.env
 
+# Terraform local state and secrets
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+crash.log
+
 # Data directories
 data/
 

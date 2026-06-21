@@ -101,3 +101,8 @@ Operational commands, verification steps, troubleshooting, and backup notes are 
 ## EC2 App Onboarding
 
 For API-only tracing without changing the app codebase, use the external runtime toolkit in [ec2-observability](ec2-observability/).
+
+## Reusable Dashboards
+
+Import or manage the generic EC2 API dashboard with Terraform using the
+[dashboard runbook](dashboards/README.md).
