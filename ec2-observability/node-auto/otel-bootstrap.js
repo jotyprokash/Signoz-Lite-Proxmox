@@ -30,10 +30,13 @@ const sdk = new NodeSDK({
     url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://otel-collector:4317',
   }),
   instrumentations: [getNodeAutoInstrumentations({
+    '@opentelemetry/instrumentation-connect': { enabled: false },
     '@opentelemetry/instrumentation-dns': { enabled: false },
     '@opentelemetry/instrumentation-fs': { enabled: false },
     '@opentelemetry/instrumentation-express': { enabled: false },
     '@opentelemetry/instrumentation-koa': { enabled: false },
+    '@opentelemetry/instrumentation-restify': { enabled: false },
+    '@opentelemetry/instrumentation-router': { enabled: false },
     '@opentelemetry/instrumentation-http': {
       ignoreIncomingRequestHook: (request) => {
         const requestPath = (request.url || '').split('?', 1)[0];
