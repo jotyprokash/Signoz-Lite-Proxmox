@@ -82,6 +82,8 @@ preflight() {
       -f "${APP_DIR}/${APP_COMPOSE_FILE}" \
       ps -q "${service}" 2>/dev/null || true)"
     if [[ -n "${container}" ]]; then
+      docker exec "${container}" node --version >/dev/null 2>&1 || \
+        die "${service} is not a compatible running Node.js service"
       current_node_options="$(docker inspect -f \
         '{{range .Config.Env}}{{println .}}{{end}}' "${container}" | \
         sed -n 's/^NODE_OPTIONS=//p')"
@@ -91,6 +93,16 @@ preflight() {
       fi
     fi
   done
+}
+
+list_services() {
+  command -v docker >/dev/null 2>&1 || die "docker is required"
+  docker compose version >/dev/null 2>&1 || die "docker compose is required"
+  [[ -f "${APP_DIR}/${APP_COMPOSE_FILE}" ]] || die "Missing ${APP_DIR}/${APP_COMPOSE_FILE}"
+  docker compose \
+    --project-directory "${APP_DIR}" \
+    -f "${APP_DIR}/${APP_COMPOSE_FILE}" \
+    config --services
 }
 
 install() {
@@ -184,6 +196,9 @@ rollback() {
 }
 
 case "${ACTION}" in
+  list-services)
+    list_services
+    ;;
   preflight)
     preflight
     echo "Observability preflight passed. No changes were made."
@@ -198,6 +213,6 @@ case "${ACTION}" in
     rollback
     ;;
   *)
-    die "Usage: $0 [preflight|install|verify|rollback] [server.env]"
+    die "Usage: $0 [list-services|preflight|install|verify|rollback] [server.env]"
     ;;
 esac
