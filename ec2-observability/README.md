@@ -1,121 +1,71 @@
 # EC2 Observability Toolkit
 
-This toolkit onboards API containers to the on-prem SigNoz collector without changing the application source code or application package files.
-
-It is designed for this flow:
+This toolkit connects Dockerized Node.js services on EC2 to the on-prem SigNoz collector without changing application source, package files, or images.
 
 ```text
-Node API container
--> local EC2 OpenTelemetry Collector
--> Tailscale
--> Proxmox SigNoz Collector
--> SigNoz
+Node containers -> EC2 OTel gateway -> Tailscale -> on-prem SigNoz
 ```
 
-The EC2 collector must already be running and forwarding to the Proxmox collector. In the current Saafir EC2 setup, the local collector is reachable from app containers as:
+## One-Command Saafir Dev Install
 
-```text
-otel-collector:4317
-```
-
-## What This Does
-
-- Installs OpenTelemetry Node packages outside the app repo under `/opt/saafir-observability/node-auto`.
-- Mounts that external bundle into selected API containers as `/otel-node`.
-- Uses `NODE_OPTIONS=--require /otel-node/otel-bootstrap.js` to auto-load tracing at process startup.
-- Sends traces to the existing EC2 collector.
-
-## What This Does Not Do
-
-- It does not edit application source code.
-- It does not edit the application `package.json`.
-- It does not rebuild application images.
-- It does not collect host CPU/RAM/disk metrics.
-- It does not collect system logs.
-
-## Install On EC2
-
-Clone or pull this repo on the EC2 instance, then run:
+The defaults match the current Saafir development server. After pulling this repository on EC2:
 
 ```bash
-cd /opt/Signoz-Lite-Proxmox/ec2-observability
-sudo ./scripts/install-node-auto.sh
+cd /opt/Signoz-Lite-Proxmox
+sudo ./ec2-observability/scripts/onboard.sh install
 ```
 
-If the repo is cloned somewhere else, run the script from that location.
+The command is idempotent. It:
 
-## Generate An Override
+- installs a pinned external Node auto-instrumentation bundle under `/opt/saafir-observability`
+- generates a protected EC2 collector configuration
+- generates an external Compose override
+- validates the merged Compose model without printing expanded secrets
+- creates or updates the EC2 collector and selected application services
+- verifies the mount, packages, containers, and collector health endpoint
+- excludes `/health`, `/ready`, `/live`, and `/metrics` from incoming HTTP traces
 
-For the Saafir dev API:
+The application repository remains unchanged.
+
+## Verify And Roll Back
 
 ```bash
-sudo ./scripts/render-compose-override.sh \
-  --output /opt/saafir-observability/docker-compose.otel.yml \
-  --collector-endpoint http://otel-collector:4317 \
-  --environment development \
-  --namespace saafir \
-  --service api=saafir-dev-api
+sudo ./ec2-observability/scripts/onboard.sh verify
+sudo ./ec2-observability/scripts/onboard.sh rollback
 ```
 
-Add more services when ready:
+Rollback recreates selected application services from their base Compose file without the observability override. It leaves the collector running so other services are not interrupted.
+
+## Another Server
+
+Copy `server.env.example`, edit its non-secret deployment values, and pass it to the script:
 
 ```bash
-sudo ./scripts/render-compose-override.sh \
-  --output /opt/saafir-observability/docker-compose.otel.yml \
-  --collector-endpoint http://otel-collector:4317 \
-  --environment development \
-  --namespace saafir \
-  --service api=saafir-dev-api \
-  --service auth=saafir-dev-auth \
-  --service chauffeur-api=saafir-dev-chauffeur-api \
-  --service agency-tp-api=saafir-dev-agency-tp-api \
-  --service stay=saafir-dev-stay
+cp ec2-observability/server.env.example ec2-observability/server.env
+sudo ./ec2-observability/scripts/onboard.sh install \
+  ./ec2-observability/server.env
 ```
 
-## Apply To One Service
+Do not put application secrets in this file.
 
-From the app repo on EC2:
+## Defaults
 
-```bash
-cd /var/www/saafir/api.b2b.dev-saafir.jatritech.com
+| Setting | Default |
+| :--- | :--- |
+| Application directory | `/var/www/saafir/api.b2b.dev-saafir.jatritech.com` |
+| Base Compose file | `docker-compose.yml` |
+| Docker network | `saafir-network` |
+| Services | `api=saafir-dev-api` |
+| SigNoz OTLP endpoint | `100.88.205.91:4317` |
+| Trace sample ratio | `0.10` |
+| Collector memory limit | `384M` |
 
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.local.yml \
-  -f /opt/saafir-observability/docker-compose.otel.yml \
-  up -d api
-```
+Set `TRACE_SAMPLE_RATIO=1` temporarily when validating every pilot request. A lower value reduces telemetry overhead but can omit errors because this first version uses SDK head sampling.
 
-## Verify
+## Safety
 
-```bash
-/opt/saafir-observability/verify.sh api
-```
-
-Or manually:
-
-```bash
-docker exec saafir-b2b-admin-panel-dev-api printenv | grep -E 'OTEL|NODE_OPTIONS'
-docker logs --since 5m saafir-b2b-admin-panel-dev-otel-collector
-curl -i http://localhost:4000/health
-```
-
-Then check SigNoz for:
-
-```text
-service.name = saafir-dev-api
-```
-
-## Rollback
-
-Recreate the service without the observability override:
-
-```bash
-cd /var/www/saafir/api.b2b.dev-saafir.jatritech.com
-
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.local.yml \
-  up -d api
-```
-
+- OTLP ports bind only to EC2 loopback and the private application network.
+- The collector forwards through Tailscale without an ingestion key.
+- The script refuses to overwrite an unrelated existing `NODE_OPTIONS` value.
+- Never share full `docker compose config` output; it expands values from application environment files.
+- Rotate application credentials that were previously exposed in terminal or chat output.
