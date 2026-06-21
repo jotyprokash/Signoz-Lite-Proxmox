@@ -288,7 +288,7 @@ verify() {
     [[ "$(docker inspect -f '{{.State.Running}}' "${proxy}")" == "true" ]] || \
       die "Docker socket proxy container is not running"
     if docker logs --since 5m "${collector}" 2>&1 | \
-       grep -Eq 'add_metadata_from_filepath|failed to emit token'; then
+       grep -Eq 'add_metadata_from_filepath|failed to detect a valid log path|failed to emit token'; then
       die "Docker log receiver is failing to process records"
     fi
   fi
